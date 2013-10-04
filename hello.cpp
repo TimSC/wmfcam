@@ -6,6 +6,7 @@
 
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
+#include <boost/python.hpp>
 
 #include <mfapi.h>
 #include <mfidl.h>
@@ -16,6 +17,19 @@ char const* greet()
 {
    return "hello, world";
 }
+
+struct MediaFoundation
+{
+	void Init()
+	{
+		HRESULT hr = MFStartup(MF_VERSION);
+	}
+
+	void DeInit()
+	{
+		MFShutdown();
+	}	
+};
 
 int test()
 {
@@ -28,5 +42,9 @@ BOOST_PYTHON_MODULE(hello_ext)
     using namespace boost::python;
 	def("greet", greet);
 	def("test", test);
-}
 
+	class_<MediaFoundation>("MediaFoundation")
+		.def("Init", &MediaFoundation::Init)
+		.def("DeInit", &MediaFoundation::DeInit)
+	;
+}
