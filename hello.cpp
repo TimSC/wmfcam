@@ -7,14 +7,26 @@
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
 
+#include <mfapi.h>
+#include <mfidl.h>
+#include <mfreadwrite.h>
+#include <Mferror.h>
+
 char const* greet()
 {
    return "hello, world";
 }
 
+int test()
+{
+	HRESULT hr = MFStartup(MF_VERSION);
+	return hr;
+}
+
 BOOST_PYTHON_MODULE(hello_ext)
 {
     using namespace boost::python;
-    def("greet", greet);
+	def("greet", greet);
+	def("test", test);
 }
 
