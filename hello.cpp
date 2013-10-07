@@ -14,6 +14,8 @@ public:
 	void Init()
 	{
 		HRESULT hr = MFStartup(MF_VERSION);
+
+		CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	}
 
 	void DeInit()
