@@ -1,5 +1,6 @@
 
 #include <stdexcept>
+#include <iostream>
 
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
@@ -26,11 +27,11 @@ public:
 	{
 		HRESULT hr = MFStartup(MF_VERSION);
 		if(!SUCCEEDED(hr))
-			std::runtime_error("Media foundation startup failed");
+			throw std::runtime_error("Media foundation startup failed");
 
 		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 		if(!SUCCEEDED(hr))
-			std::runtime_error("CoInitializeEx failed");
+			throw std::runtime_error("CoInitializeEx failed");
 	}
 
 	void ListDevices()
@@ -38,7 +39,7 @@ public:
 		IMFAttributes *pAttributes = NULL;
 		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
 		if(!SUCCEEDED(hr))
-			std::runtime_error("MFCreateAttributes failed");
+			throw std::runtime_error("MFCreateAttributes failed");
 
 
 
