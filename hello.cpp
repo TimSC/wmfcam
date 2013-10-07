@@ -1,10 +1,13 @@
 
 #include <stdexcept>
 #include <iostream>
+#include <vector>
+#include <string>
 
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
 #include <boost/python.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 
 #include <mfapi.h>
 #include <mfidl.h>
@@ -19,6 +22,11 @@ template <class T> void SafeRelease(T **ppT)
         *ppT = NULL;
     }
 }
+
+typedef std::string StdString;
+typedef std::wstring StdWString;
+typedef std::vector<StdString> StdVectorOfStrings;
+typedef std::vector<StdWString> StdVectorOfWStrings;
 
 class MediaFoundation
 {
@@ -41,8 +49,10 @@ public:
 		CoUninitialize();
 	}	
 
-	void ListDevices()
+	StdVectorOfStrings ListDevices()
 	{
+		StdVectorOfStrings out;
+
 		//Allocate memory to store devices
 		IMFAttributes *pAttributes = NULL;
 		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
@@ -59,6 +69,7 @@ public:
 			throw std::runtime_error("SetGUID failed");
 		}
 
+		//Get list of devices from media foundation
 		IMFActivate **ppDevices = NULL;
 		UINT32 count;
 		hr = MFEnumDeviceSources(pAttributes, &ppDevices, &count);
@@ -68,9 +79,41 @@ public:
 			throw std::runtime_error("MFEnumDeviceSources failed");
 		}
 
-		std::cout << "count" << count << std::endl;
+		//For each device
+		for(UINT32 i=0; i<count; i++)
+		{
+			IMFActivate *pActivate = ppDevices[i];
+			wchar_t *vd_pFriendlyName = NULL;
+
+			//Get friendly names for devices
+			hr = pActivate->GetAllocatedString(
+				MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
+				&vd_pFriendlyName,
+				NULL
+				);
+			
+			//std::wcout << vd_pFriendlyName << std::endl;
+			//std::wstring tmp(vd_pFriendlyName);
+			//out.push_back(tmp);
+			
+			CoTaskMemFree(vd_pFriendlyName);
+
+			/*IMFMediaSource *pSource = NULL;
+			hr = pActivate->ActivateObject(
+				__uuidof(IMFMediaSource),
+				(void**)&pSource
+				);
+
+			SafeRelease(&pSource);*/
+
+			//std::cout << vd_pFriendlyName << std::endl;
+			
+		}
 
 		SafeRelease(&pAttributes);
+
+		out.push_back("test");
+		return out;
 	}
 
 };
@@ -78,6 +121,12 @@ public:
 BOOST_PYTHON_MODULE(hello_ext)
 {
     using namespace boost::python;
+
+	class_<StdVectorOfStrings>("StdVectorOfStrings")
+        .def(vector_indexing_suite<StdVectorOfStrings>() );
+
+	class_<StdVectorOfWStrings>("StdVectorOfWStrings")
+        .def(vector_indexing_suite<StdVectorOfWStrings>() );
 
 	class_<MediaFoundation>("MediaFoundation")
 		.def("Init", &MediaFoundation::Init)

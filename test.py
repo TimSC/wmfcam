@@ -8,8 +8,13 @@ if __name__ == "__main__":
     mf.Init()
 
     print "ListDevices"
-    mf.ListDevices()
-
+    deviceList = mf.ListDevices()
+    #print type(deviceList)
+    #print dir(deviceList)
+    #print type(deviceList[0])
+    #print dir(deviceList[0])
+    print deviceList[0]
+    
     print "Deinit"
     mf.DeInit()
     
