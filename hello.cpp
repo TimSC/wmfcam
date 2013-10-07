@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+using namespace std;
 
 #include <boost/python/module.hpp>
 #include <boost/python/def.hpp>
@@ -45,69 +46,86 @@ public:
 		CoUninitialize();
 	}	
 
-	PyObject* ListDevices()
+	int EnumDevices(IMFAttributes **pAttributesOut, IMFActivate ***ppDevicesOut)
 	{
-		PyObject* out = PyList_New(0);
-
 		//Allocate memory to store devices
-		IMFAttributes *pAttributes = NULL;
-		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
+		*pAttributesOut = NULL;
+		*ppDevicesOut = NULL;
+		HRESULT hr = MFCreateAttributes(pAttributesOut, 1);
 		if(!SUCCEEDED(hr))
 			throw std::runtime_error("MFCreateAttributes failed");
 
-		hr = pAttributes->SetGUID(
+		hr = (*pAttributesOut)->SetGUID(
             MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
             MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
             );
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&pAttributes);
+			SafeRelease(pAttributesOut);
 			throw std::runtime_error("SetGUID failed");
 		}
 
 		//Get list of devices from media foundation
-		IMFActivate **ppDevices = NULL;
 		UINT32 count;
-		hr = MFEnumDeviceSources(pAttributes, &ppDevices, &count);
+		hr = MFEnumDeviceSources(*pAttributesOut, ppDevicesOut, &count);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&pAttributes);
+			SafeRelease(pAttributesOut);
 			throw std::runtime_error("MFEnumDeviceSources failed");
 		}
+		return count;
+	}
 
+	PyObject* ListDevices()
+	{
+		PyObject* out = PyList_New(0);
+		IMFAttributes *pAttributes = NULL;
+		IMFActivate **ppDevices = NULL;
+		int count = EnumDevices(&pAttributes, &ppDevices);
+		
 		//For each device
-		for(UINT32 i=0; i<count; i++)
+		for(int i=0; i<count; i++)
 		{
 			IMFActivate *pActivate = ppDevices[i];
 			wchar_t *vd_pFriendlyName = NULL;
 
 			//Get friendly names for devices
-			hr = pActivate->GetAllocatedString(
+			HRESULT hr = pActivate->GetAllocatedString(
 				MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
 				&vd_pFriendlyName,
 				NULL
 				);
-			
+			if(!SUCCEEDED(hr))
+			{
+				SafeRelease(&pAttributes);
+				SafeRelease(ppDevices);
+				CoTaskMemFree(vd_pFriendlyName);
+				throw std::runtime_error("GetAllocatedString failed");
+			}
+
 			PyObject *pyStr = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
 			PyList_Append(out, pyStr);
 
 			CoTaskMemFree(vd_pFriendlyName);
+		}
 
-			/*IMFMediaSource *pSource = NULL;
+		SafeRelease(&pAttributes);
+		SafeRelease(ppDevices);
+		return out;
+	}
+
+	int ActivateDevice(UINT32 sourceNum)
+	{
+
+		/*
+			IMFMediaSource *pSource = NULL;
 			hr = pActivate->ActivateObject(
 				__uuidof(IMFMediaSource),
 				(void**)&pSource
 				);
 
 			SafeRelease(&pSource);*/
-
-			//std::cout << vd_pFriendlyName << std::endl;
-			
-		}
-
-		SafeRelease(&pAttributes);
-
-		return out;
+		return 0;
 	}
 
 };
@@ -120,5 +138,6 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("Init", &MediaFoundation::Init)
 		.def("DeInit", &MediaFoundation::DeInit)
 		.def("ListDevices", &MediaFoundation::ListDevices)
+		.def("ActivateDevice", &MediaFoundation::ActivateDevice)
 	;
 }
