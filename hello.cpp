@@ -52,7 +52,7 @@ public:
 
 	PyObject* ListDevices()
 	{
-		PyObject* out = Py_None;
+		PyObject* out = PyList_New(0);
 
 		//Allocate memory to store devices
 		IMFAttributes *pAttributes = NULL;
@@ -93,7 +93,8 @@ public:
 				NULL
 				);
 			
-			out = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
+			PyObject *pyStr = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
+			PyList_Append(out, pyStr);
 
 			//std::wcout << vd_pFriendlyName << std::endl;
 			//std::wstring tmp(vd_pFriendlyName);
