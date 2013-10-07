@@ -114,17 +114,43 @@ public:
 		return out;
 	}
 
-	int ActivateDevice(UINT32 sourceNum)
+	int ActivateDevice(int sourceNum)
 	{
+		IMFAttributes *pAttributes = NULL;
+		IMFActivate **ppDevices = NULL;
+		int count = EnumDevices(&pAttributes, &ppDevices);
 
-		/*
-			IMFMediaSource *pSource = NULL;
-			hr = pActivate->ActivateObject(
-				__uuidof(IMFMediaSource),
-				(void**)&pSource
-				);
+		if (sourceNum >= count)
+			throw std::runtime_error("Source does not exist");
 
-			SafeRelease(&pSource);*/
+		IMFActivate *pActivate = ppDevices[sourceNum];
+		
+		IMFMediaSource *pSource = NULL;
+		HRESULT hr = pActivate->ActivateObject(
+			__uuidof(IMFMediaSource),
+			(void**)&pSource
+			);
+		if(!SUCCEEDED(hr))
+		{
+			SafeRelease(&pAttributes);
+			SafeRelease(ppDevices);
+			throw std::runtime_error("ActivateObject failed");
+		}
+
+		IMFSourceReader *ppSourceReader = NULL;
+		hr = MFCreateSourceReaderFromMediaSource(pSource, pAttributes, &ppSourceReader);
+		if(!SUCCEEDED(hr))
+		{
+			SafeRelease(&pSource);
+			SafeRelease(&pAttributes);
+			SafeRelease(ppDevices);
+			throw std::runtime_error("ActivateObject failed");
+		}
+
+		SafeRelease(&pSource);
+		SafeRelease(&pAttributes);
+		SafeRelease(ppDevices);
+		SafeRelease(&ppSourceReader);
 		return 0;
 	}
 

@@ -1,5 +1,5 @@
 
-import hello_ext
+import hello_ext, time
 
 if __name__ == "__main__":
     mf = hello_ext.MediaFoundation()
@@ -9,11 +9,13 @@ if __name__ == "__main__":
 
     print "ListDevices"
     deviceList = mf.ListDevices()
-    #print type(deviceList)
-    #print dir(deviceList)
-    #print type(deviceList[0])
-    #print dir(deviceList[0])
     print deviceList
+
+    for devNum in range(len(deviceList)):
+        print "Activate", devNum
+        mf.ActivateDevice(devNum)
+
+    time.sleep(1.)
     
     print "Deinit"
     mf.DeInit()
