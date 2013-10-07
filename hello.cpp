@@ -8,6 +8,7 @@
 #include <boost/python/def.hpp>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <boost/python/detail/wrap_python.hpp>
 
 #include <mfapi.h>
 #include <mfidl.h>
@@ -49,9 +50,9 @@ public:
 		CoUninitialize();
 	}	
 
-	StdVectorOfStrings ListDevices()
+	PyObject* ListDevices()
 	{
-		StdVectorOfStrings out;
+		PyObject* out = Py_None;
 
 		//Allocate memory to store devices
 		IMFAttributes *pAttributes = NULL;
@@ -92,6 +93,8 @@ public:
 				NULL
 				);
 			
+			out = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
+
 			//std::wcout << vd_pFriendlyName << std::endl;
 			//std::wstring tmp(vd_pFriendlyName);
 			//out.push_back(tmp);
@@ -112,7 +115,6 @@ public:
 
 		SafeRelease(&pAttributes);
 
-		out.push_back("test");
 		return out;
 	}
 

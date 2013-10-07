@@ -13,7 +13,7 @@ if __name__ == "__main__":
     #print dir(deviceList)
     #print type(deviceList[0])
     #print dir(deviceList[0])
-    print deviceList[0]
+    print deviceList
     
     print "Deinit"
     mf.DeInit()
