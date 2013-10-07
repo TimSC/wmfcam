@@ -24,11 +24,6 @@ template <class T> void SafeRelease(T **ppT)
     }
 }
 
-typedef std::string StdString;
-typedef std::wstring StdWString;
-typedef std::vector<StdString> StdVectorOfStrings;
-typedef std::vector<StdWString> StdVectorOfWStrings;
-
 class MediaFoundation
 {
 public:
@@ -96,10 +91,6 @@ public:
 			PyObject *pyStr = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
 			PyList_Append(out, pyStr);
 
-			//std::wcout << vd_pFriendlyName << std::endl;
-			//std::wstring tmp(vd_pFriendlyName);
-			//out.push_back(tmp);
-			
 			CoTaskMemFree(vd_pFriendlyName);
 
 			/*IMFMediaSource *pSource = NULL;
@@ -124,12 +115,6 @@ public:
 BOOST_PYTHON_MODULE(hello_ext)
 {
     using namespace boost::python;
-
-	class_<StdVectorOfStrings>("StdVectorOfStrings")
-        .def(vector_indexing_suite<StdVectorOfStrings>() );
-
-	class_<StdVectorOfWStrings>("StdVectorOfWStrings")
-        .def(vector_indexing_suite<StdVectorOfWStrings>() );
 
 	class_<MediaFoundation>("MediaFoundation")
 		.def("Init", &MediaFoundation::Init)
