@@ -13,13 +13,9 @@
 #include <mfreadwrite.h>
 #include <Mferror.h>
 
-char const* greet()
+class MediaFoundation
 {
-   return "hello, world";
-}
-
-struct MediaFoundation
-{
+public:
 	void Init()
 	{
 		HRESULT hr = MFStartup(MF_VERSION);
@@ -31,17 +27,9 @@ struct MediaFoundation
 	}	
 };
 
-int test()
-{
-	HRESULT hr = MFStartup(MF_VERSION);
-	return hr;
-}
-
 BOOST_PYTHON_MODULE(hello_ext)
 {
     using namespace boost::python;
-	def("greet", greet);
-	def("test", test);
 
 	class_<MediaFoundation>("MediaFoundation")
 		.def("Init", &MediaFoundation::Init)
