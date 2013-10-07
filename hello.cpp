@@ -15,6 +15,7 @@ using namespace std;
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <Mferror.h>
+#include <Dshow.h>
 
 template <class T> void SafeRelease(T **ppT)
 {
@@ -46,6 +47,9 @@ HRESULT EnumerateTypesForStream(IMFSourceReader *pReader, DWORD dwStreamIndex)
 			cout << "ex" << dwMediaTypeIndex << endl;
 
 			AM_MEDIA_TYPE *ppvRepresentation = NULL;
+			pType->GetRepresentation(AM_MEDIA_TYPE_REPRESENTATION, (void **)&ppvRepresentation);
+
+			//cout << (ppvRepresentation->formattype==GUID_NULL) << endl;
 
             pType->Release();
         }
