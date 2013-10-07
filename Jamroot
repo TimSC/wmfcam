@@ -28,6 +28,7 @@ python-extension hello_ext : hello.cpp
     :
     <library-path>"C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\Lib"
     <library-file>Mfplat.lib
+	<library-file>Mf.lib
 	<library-file>Ole32.lib
     ;
 

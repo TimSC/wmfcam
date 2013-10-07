@@ -7,6 +7,9 @@ if __name__ == "__main__":
     print "Init"
     mf.Init()
 
+    print "ListDevices"
+    mf.ListDevices()
+
     print "Deinit"
     mf.DeInit()
     
