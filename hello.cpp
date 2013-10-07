@@ -21,6 +21,8 @@ public:
 	void DeInit()
 	{
 		MFShutdown();
+
+		CoUninitialize();
 	}	
 };
 
