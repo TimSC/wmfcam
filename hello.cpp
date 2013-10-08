@@ -421,6 +421,181 @@ public:
 		SafeRelease(&pType);
 	}
 
+	HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride)
+	{
+		LONG lStride = 0;
+
+		// Try to get the default stride from the media type.
+		HRESULT hr = pType->GetUINT32(MF_MT_DEFAULT_STRIDE, (UINT32*)&lStride);
+
+		if (FAILED(hr))
+		{
+			// Attribute not set. Try to calculate the default stride.
+
+			GUID subtype = GUID_NULL;
+
+			UINT32 width = 0;
+			UINT32 height = 0;
+			// Get the subtype and the image size.
+			hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
+			if (FAILED(hr))
+			{
+				goto done;
+			}
+			hr = MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
+			if (FAILED(hr))
+			{
+				goto done;
+			}
+			hr = MFGetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
+			if (FAILED(hr))
+			{
+				goto done;
+			}
+
+			// Set the attribute for later reference.
+			(void)pType->SetUINT32(MF_MT_DEFAULT_STRIDE, UINT32(lStride));
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			*plStride = lStride;
+		}
+
+	done:
+		return hr;
+	}
+
+	HRESULT ProcessSamples(IMFSourceReader *pReader)
+	{
+		HRESULT hr = S_OK;
+		IMFSample *pSample = NULL;
+		size_t  cSamples = 0;
+		UINT32 width = 0;
+		UINT32 height = 0;	
+
+		bool quit = false;
+		while (!quit)
+		{
+			DWORD streamIndex, flags;
+			LONGLONG llTimeStamp;
+
+			hr = pReader->ReadSample(
+				MF_SOURCE_READER_ANY_STREAM,    // Stream index.
+				0,                              // Flags.
+				&streamIndex,                   // Receives the actual stream index. 
+				&flags,                         // Receives status flags.
+				&llTimeStamp,                   // Receives the time stamp.
+				&pSample                        // Receives the sample or NULL.
+				);
+
+			if (FAILED(hr))
+			{
+				break;
+			}
+
+			cout << "Stream " << streamIndex << "," << llTimeStamp << endl;
+			if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+			{
+				cout << "End of stream" << endl;
+				quit = true;
+			}
+			if (flags & MF_SOURCE_READERF_NEWSTREAM)
+			{
+			   cout << "New stream" << endl;
+			}
+			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+			{
+			   //log << wxString::Format(L"\tNative type changed\n");
+			}
+			if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+			{
+			   //log << wxString::Format(L"\tCurrent type changed\n");
+			}
+			if (flags & MF_SOURCE_READERF_STREAMTICK)
+			{
+				//log << wxString::Format(L"\tStream tick\n");
+			}
+
+			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+			{
+				// The format changed. Reconfigure the decoder.
+				/*hr = ConfigureDecoder(pReader, streamIndex, log);
+				if (FAILED(hr))
+				{
+					break;
+				}*/
+			}
+
+			if (pSample)
+			{
+				IMFMediaType *pCurrentType = NULL;
+				LONG plStride = 0;
+				GUID majorType=GUID_NULL, subType=GUID_NULL;
+
+				HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
+				if(!SUCCEEDED(hr)) cout << "Error 3\n";
+				BOOL isComp = FALSE;
+				hr = pCurrentType->IsCompressedFormat(&isComp);
+				cout << "iscompressed" << isComp << "\n";
+				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
+				if(!SUCCEEDED(hr)) cout << "Error 4\n";
+				hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
+				if(!SUCCEEDED(hr)) cout << "Error 5\n";
+				int isVideo = (majorType==MFMediaType_Video);
+				if(isVideo)
+				{
+					this->GetDefaultStride(pCurrentType, &plStride);
+					cout << "subtype" <<(subType==MFVideoFormat_RGB32)<<","<<(subType==MFAudioFormat_PCM)<<"\n";
+					hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
+					if(!SUCCEEDED(hr)) cout << "Error 20\n";
+				}
+
+				LPCWSTR subTypePtr = GetGUIDNameConst(subType);
+				if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
+
+				IMFMediaBuffer *ppBuffer = NULL;
+				hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
+				cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
+
+				IMF2DBuffer *m_p2DBuffer = NULL;
+				ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
+				cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
+
+				if(SUCCEEDED(hr))
+				{
+					BYTE *ppbBuffer;
+					DWORD pcbMaxLength;
+					DWORD pcbCurrentLength;
+					hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
+					cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
+
+					//if(isVideo)
+					//	DecodeViewFrame(ppbBuffer, pcbCurrentLength, width, height, plStride, subTypePtr, log);
+
+					ppBuffer->Unlock();
+				}
+
+				if(ppBuffer) ppBuffer->Release();
+
+				++cSamples;
+			}
+
+			if(pSample) pSample->Release();
+		}
+
+		if (FAILED(hr))
+		{
+			cout << "ProcessSamples FAILED" << hr << endl;
+		}
+		else
+		{
+			cout << "Processed "<<cSamples<<" samples" << endl;
+		}
+		if(pSample) pSample->Release();
+		return hr;
+	}
+
 	int ActivateDevice(int sourceNum)
 	{
 		IMFAttributes *pAttributes = NULL;
@@ -443,6 +618,11 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
+		this->EnumerateMediaTypes(this->currentSource);
+
+		unsigned long formatId = 31;
+		this->SetMediaType(this->currentSource, formatId);
+
 		IMFSourceReader *ppSourceReader = NULL;
 		hr = MFCreateSourceReaderFromMediaSource(currentSource, pAttributes, &ppSourceReader);
 		if(!SUCCEEDED(hr))
@@ -453,10 +633,7 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		this->EnumerateMediaTypes(this->currentSource);
-
-		unsigned long formatId = 31;
-		this->SetMediaType(this->currentSource, formatId);
+		ProcessSamples(ppSourceReader);
 
 		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
