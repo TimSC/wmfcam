@@ -31,6 +31,7 @@ python-extension hello_ext : hello.cpp
 	<library-file>Mf.lib
 	<library-file>Mfreadwrite.lib
 	<library-file>Ole32.lib
+	<library-file>mfuuid.lib
     ;
 
 # Put the extension and Boost.Python DLL in the current directory, so
