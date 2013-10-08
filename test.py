@@ -18,6 +18,11 @@ if __name__ == "__main__":
             print tyCount, ty
 
     for devNum in range(len(deviceList)):
+        print "Set Media Type", devNum
+        mediaIndex = 0
+        mf.SetMediaType(deviceList[devNum][1], mediaIndex)
+
+    for devNum in range(len(deviceList)):
         print "Starting", devNum
         mf.StartCamera(deviceList[devNum][1])
 

@@ -438,12 +438,15 @@ public:
 		return out;
 	}
 
-	void SetMediaType(IMFMediaSource *pSource, unsigned long dwFormatIndex)
+	void SetMediaType(PyObject *sourceId, unsigned long dwFormatIndex)
 	{
+		IMFMediaSource *pSource = this->GetSource(sourceId);
+
 		IMFPresentationDescriptor *pPD = NULL;
 		IMFStreamDescriptor *pSD = NULL;
 		IMFMediaTypeHandler *pHandler = NULL;
 		IMFMediaType *pType = NULL;
+		
 
 		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
 		BOOL fSelected;
@@ -451,6 +454,14 @@ public:
 		hr = pSD->GetMediaTypeHandler(&pHandler);
 		hr = pHandler->GetMediaTypeByIndex((DWORD)dwFormatIndex, &pType);
 		hr = pHandler->SetCurrentMediaType(pType);
+		if(!SUCCEEDED(hr))
+		{
+			SafeRelease(&pPD);
+			SafeRelease(&pSD);
+			SafeRelease(&pHandler);
+			SafeRelease(&pType);
+			throw runtime_error("SetCurrentMediaType failed");
+		}
 
 		SafeRelease(&pPD);
 		SafeRelease(&pSD);
@@ -757,8 +768,6 @@ public:
 			throw std::runtime_error("MFCreateAttributes failed");
 		
 		IMFMediaSource *source = this->GetSource(sourceId);
-		unsigned long formatId = 31;
-		this->SetMediaType(source, formatId);
 
 		IMFSourceReader *reader = NULL;
 		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &reader);
@@ -786,6 +795,6 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("StartCamera", &MediaFoundation::StartCamera)
 		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
 		.def("EnumerateMediaTypes", &MediaFoundation::EnumerateMediaTypes)
-		
+		.def("SetMediaType", &MediaFoundation::SetMediaType)
 	;
 }
