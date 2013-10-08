@@ -388,8 +388,11 @@ public:
 		PropVariantClear(&var);
 	}
 
-	void EnumerateMediaTypes(IMFMediaSource *pSource)
+	PyObject *EnumerateMediaTypes(PyObject *sourceId)
 	{
+		PyObject *out = Py_None;
+		IMFMediaSource *pSource = this->GetSource(sourceId);
+
 		//Emumerate types
 		IMFPresentationDescriptor *pPD = NULL;
 		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
@@ -422,6 +425,7 @@ public:
 		SafeRelease(&pPD);
 		SafeRelease(&pSD);
 		SafeRelease(&pHandler);
+		return out;
 	}
 
 	void SetMediaType(IMFMediaSource *pSource, unsigned long dwFormatIndex)
@@ -771,6 +775,7 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("ListDevices", &MediaFoundation::ListDevices)
 		.def("StartCamera", &MediaFoundation::StartCamera)
 		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
+		.def("EnumerateMediaTypes", &MediaFoundation::EnumerateMediaTypes)
 		
 	;
 }

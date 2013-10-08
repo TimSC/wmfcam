@@ -12,6 +12,10 @@ if __name__ == "__main__":
     print deviceList
 
     for devNum in range(len(deviceList)):
+        print "Enumerate Types", devNum
+        mf.EnumerateMediaTypes(deviceList[devNum][1])
+
+    for devNum in range(len(deviceList)):
         print "Starting", devNum
         mf.StartCamera(deviceList[devNum][1])
 
