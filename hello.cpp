@@ -475,7 +475,6 @@ public:
 		IMFSourceReader *pReader = this->currentReader;
 		HRESULT hr = S_OK;
 		IMFSample *pSample = NULL;
-		size_t  cSamples = 0;
 		UINT32 width = 0;
 		UINT32 height = 0;
 
@@ -500,37 +499,29 @@ public:
 				break;
 			}
 
-			cout << "Stream " << streamIndex << "," << llTimeStamp << endl;
 			if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
 			{
-				cout << "End of stream" << endl;
+				PyDict_SetItemString(out, "end", PyInt_FromLong(1));
 				quit = true;
 			}
+			else
+				PyDict_SetItemString(out, "end", PyInt_FromLong(0));
+			PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
+
 			if (flags & MF_SOURCE_READERF_NEWSTREAM)
 			{
-			   cout << "New stream" << endl;
 			}
 			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
 			{
-			   //log << wxString::Format(L"\tNative type changed\n");
 			}
 			if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
 			{
-			   //log << wxString::Format(L"\tCurrent type changed\n");
 			}
 			if (flags & MF_SOURCE_READERF_STREAMTICK)
 			{
-				//log << wxString::Format(L"\tStream tick\n");
 			}
-
 			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
 			{
-				// The format changed. Reconfigure the decoder.
-				/*hr = ConfigureDecoder(pReader, streamIndex, log);
-				if (FAILED(hr))
-				{
-					break;
-				}*/
 			}
 
 			if (pSample)
@@ -543,7 +534,7 @@ public:
 				if(!SUCCEEDED(hr)) cout << "Error 3\n";
 				BOOL isComp = FALSE;
 				hr = pCurrentType->IsCompressedFormat(&isComp);
-				//cout << "iscompressed" << isComp << "\n";
+				PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
 				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
 				LPCWSTR typePtr = GetGUIDNameConst(majorType);
 				if(!SUCCEEDED(hr)) cout << "Error 4\n";
@@ -553,17 +544,16 @@ public:
 				if(isVideo)
 				{
 					this->GetDefaultStride(pCurrentType, &plStride);
-					//cout << "subtype" <<(subType==MFVideoFormat_RGB32)<<","<<(subType==MFAudioFormat_PCM)<<"\n";
 					hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
 					if(!SUCCEEDED(hr)) cout << "Error 20\n";
 				}
 
 				LPCWSTR subTypePtr = GetGUIDNameConst(subType);
-				if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
+				//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
 
 				IMFMediaBuffer *ppBuffer = NULL;
 				hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
-				cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
+				//cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
 
 				IMF2DBuffer *m_p2DBuffer = NULL;
 				ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
@@ -577,23 +567,23 @@ public:
 					hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
 					//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
 
+					//Return buffer as python format data
+					PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
+					PyDict_SetItemString(out, "buff", buff);
+					if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+					if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
 					if(isVideo)
 					{
-						PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
-						PyDict_SetItemString(out, "buff", buff);
-						if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-						if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+						if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
 						PyDict_SetItemString(out, "width", PyInt_FromLong(width));
 						PyDict_SetItemString(out, "height", PyInt_FromLong(height));
-						PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
 					}
-
+					PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
+				
 					ppBuffer->Unlock();
 				}
 
 				if(ppBuffer) ppBuffer->Release();
-
-				++cSamples;
 			}
 
 			if(pSample) pSample->Release();
@@ -603,11 +593,11 @@ public:
 
 		if (FAILED(hr))
 		{
-			cout << "ProcessSamples FAILED" << hr << endl;
+			//cout << "ProcessSamples FAILED" << hr << endl;
 		}
 		else
 		{
-			cout << "Processed "<<cSamples<<" samples" << endl;
+			//cout << "Processed "<<cSamples<<" samples" << endl;
 		}
 		if(pSample) pSample->Release();
 		return out;
