@@ -25,6 +25,13 @@ template <class T> void SafeRelease(T **ppT)
     }
 }
 
+void PrintGuid(GUID guid)
+{
+	LPOLESTR lplpsz;
+	StringFromCLSID(guid, &lplpsz);
+	wcout << lplpsz << endl;
+	CoTaskMemFree(lplpsz);
+}
 
 #ifndef IF_EQUAL_RETURN
 #define IF_EQUAL_RETURN(param, val) if(val == param) return L#val
@@ -306,10 +313,7 @@ public:
 			cout << (long) pcwsz2 << endl;
 			if (pcwsz2 == NULL)
 			{
-				LPOLESTR *lplpsz;
-				StringFromCLSID(*pcwsz2, lplpsz);
-				cout << lplpsz << endl;
-				CoTaskMemFree(lplpsz);
+				PrintGuid(*var.puuid);
 			}
 
             break;
