@@ -15,7 +15,6 @@ using namespace std;
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <Mferror.h>
-#include <Dshow.h>
 
 template <class T> void SafeRelease(T **ppT)
 {
@@ -24,38 +23,6 @@ template <class T> void SafeRelease(T **ppT)
         (*ppT)->Release();
         *ppT = NULL;
     }
-}
-
-HRESULT EnumerateTypesForStream(IMFSourceReader *pReader, DWORD dwStreamIndex)
-{
-	//http://msdn.microsoft.com/en-us/library/windows/desktop/dd389281%28v=vs.85%29.aspx
-    HRESULT hr = S_OK;
-    DWORD dwMediaTypeIndex = 0;
-
-    while (SUCCEEDED(hr))
-    {
-        IMFMediaType *pType = NULL;
-        hr = pReader->GetNativeMediaType(dwStreamIndex, dwMediaTypeIndex, &pType);
-        if (hr == MF_E_NO_MORE_TYPES)
-        {
-            hr = S_OK;
-            break;
-        }
-        else if (SUCCEEDED(hr))
-        {
-            // Examine the media type. (Not shown.)
-			cout << "ex" << dwMediaTypeIndex << endl;
-
-			AM_MEDIA_TYPE *ppvRepresentation = NULL;
-			pType->GetRepresentation(AM_MEDIA_TYPE_REPRESENTATION, (void **)&ppvRepresentation);
-
-			//cout << (ppvRepresentation->formattype==GUID_NULL) << endl;
-
-            pType->Release();
-        }
-        ++dwMediaTypeIndex;
-    }
-    return hr;
 }
 
 class MediaFoundation
@@ -180,7 +147,7 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		EnumerateTypesForStream(ppSourceReader, MF_SOURCE_READER_FIRST_VIDEO_STREAM);
+
 
 		SafeRelease(&pSource);
 		SafeRelease(&pAttributes);
