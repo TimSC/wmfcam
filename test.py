@@ -11,9 +11,12 @@ if __name__ == "__main__":
     deviceList = mf.ListDevices()
     print deviceList
 
+    print type(deviceList[0][1])
+    print mf.FindSourceWithId(deviceList[0][1])
+
     for devNum in range(len(deviceList)):
         print "Activate", devNum
-        mf.ActivateDevice(devNum)
+        mf.ActivateDevice(deviceList[0][1])
 
 	while 1:
 		time.sleep(0.01)

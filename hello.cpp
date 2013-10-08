@@ -285,10 +285,28 @@ public:
 				throw std::runtime_error("GetAllocatedString failed");
 			}
 
-			PyObject *pyStr = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
-			PyList_Append(out, pyStr);
+			wchar_t *symbolicLink = NULL;
+			hr = pActivate->GetAllocatedString(
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK,
+				&symbolicLink,
+				NULL
+				);
+			if(!SUCCEEDED(hr))
+			{
+				SafeRelease(&pAttributes);
+				SafeRelease(ppDevices);
+				CoTaskMemFree(vd_pFriendlyName);
+				CoTaskMemFree(symbolicLink);
+				throw std::runtime_error("GetAllocatedString failed");
+			}
+
+			PyObject *deviceTuple = PyTuple_New(2);
+			PyTuple_SetItem(deviceTuple, 0, PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName)));
+			PyTuple_SetItem(deviceTuple, 1, PyUnicode_FromWideChar(symbolicLink, wcslen(symbolicLink)));
+			PyList_Append(out, deviceTuple);
 
 			CoTaskMemFree(vd_pFriendlyName);
+			CoTaskMemFree(symbolicLink);
 		}
 
 		SafeRelease(&pAttributes);
@@ -603,15 +621,63 @@ public:
 		return out;
 	}
 
-	int ActivateDevice(int sourceNum)
+	int FindSourceWithId(PyObject *sourceId)
 	{
+		int outIndex = -1;
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+
 		IMFAttributes *pAttributes = NULL;
 		IMFActivate **ppDevices = NULL;
 		int count = EnumDevices(&pAttributes, &ppDevices);
 
-		if (sourceNum >= count)
-			throw std::runtime_error("Source does not exist");
+		//For each device
+		for(int i=0; i<count; i++)
+		{
+			IMFActivate *pActivate = ppDevices[i];
 
+			wchar_t *symbolicLink = NULL;
+			HRESULT hr = pActivate->GetAllocatedString(
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK,
+				&symbolicLink,
+				NULL
+				);
+			if(!SUCCEEDED(hr))
+			{
+				SafeRelease(&pAttributes);
+				SafeRelease(ppDevices);
+				CoTaskMemFree(symbolicLink);
+				throw std::runtime_error("GetAllocatedString failed");
+			}
+
+			if(wcscmp(symbolicLink, w)==0)
+			{
+				outIndex = i;
+				i = count;
+			}
+
+			CoTaskMemFree(symbolicLink);
+		}
+
+		SafeRelease(&pAttributes);
+		SafeRelease(ppDevices);
+		return outIndex;
+	}
+
+	int ActivateDevice(PyObject *sourceId)
+	{
+		IMFAttributes *pAttributes = NULL;
+		IMFActivate **ppDevices = NULL;
+
+		int sourceNum = FindSourceWithId(sourceId);
+		if (sourceNum < 0)
+			throw std::runtime_error("Source id not found");
+
+		int count = EnumDevices(&pAttributes, &ppDevices);
 		IMFActivate *pActivate = ppDevices[sourceNum];
 		
 		HRESULT hr = pActivate->ActivateObject(
@@ -625,7 +691,7 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		this->EnumerateMediaTypes(this->currentSource);
+		//this->EnumerateMediaTypes(this->currentSource);
 
 		unsigned long formatId = 31;
 		this->SetMediaType(this->currentSource, formatId);
@@ -656,5 +722,7 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("ListDevices", &MediaFoundation::ListDevices)
 		.def("ActivateDevice", &MediaFoundation::ActivateDevice)
 		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
+		.def("FindSourceWithId", &MediaFoundation::FindSourceWithId)
+		
 	;
 }
