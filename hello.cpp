@@ -193,7 +193,20 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
 
 class MediaFoundation
 {
+protected:
+	IMFMediaSource *currentSource;
+
 public:
+	MediaFoundation()
+	{
+		this->currentSource = NULL;
+	}
+
+	virtual ~MediaFoundation()
+	{
+		SafeRelease(&this->currentSource);
+	}
+
 	void Init()
 	{
 		HRESULT hr = MFStartup(MF_VERSION);
@@ -388,6 +401,25 @@ public:
 		SafeRelease(&pHandler);
 	}
 
+	void SetMediaType(IMFMediaSource *pSource, unsigned long dwFormatIndex)
+	{
+		IMFPresentationDescriptor *pPD = NULL;
+		IMFStreamDescriptor *pSD = NULL;
+		IMFMediaTypeHandler *pHandler = NULL;
+		IMFMediaType *pType = NULL;
+
+		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
+		BOOL fSelected;
+		hr = pPD->GetStreamDescriptorByIndex(0, &fSelected, &pSD);
+		hr = pSD->GetMediaTypeHandler(&pHandler);
+		hr = pHandler->GetMediaTypeByIndex((DWORD)dwFormatIndex, &pType);
+		hr = pHandler->SetCurrentMediaType(pType);
+
+		SafeRelease(&pPD);
+		SafeRelease(&pSD);
+		SafeRelease(&pHandler);
+		SafeRelease(&pType);
+	}
 
 	int ActivateDevice(int sourceNum)
 	{
@@ -400,10 +432,9 @@ public:
 
 		IMFActivate *pActivate = ppDevices[sourceNum];
 		
-		IMFMediaSource *pSource = NULL;
 		HRESULT hr = pActivate->ActivateObject(
 			__uuidof(IMFMediaSource),
-			(void**)&pSource
+			(void**)&currentSource
 			);
 		if(!SUCCEEDED(hr))
 		{
@@ -413,18 +444,20 @@ public:
 		}
 
 		IMFSourceReader *ppSourceReader = NULL;
-		hr = MFCreateSourceReaderFromMediaSource(pSource, pAttributes, &ppSourceReader);
+		hr = MFCreateSourceReaderFromMediaSource(currentSource, pAttributes, &ppSourceReader);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&pSource);
+			SafeRelease(&this->currentSource);
 			SafeRelease(&pAttributes);
 			SafeRelease(ppDevices);
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		this->EnumerateMediaTypes(pSource);
+		this->EnumerateMediaTypes(this->currentSource);
 
-		SafeRelease(&pSource);
+		unsigned long formatId = 31;
+		this->SetMediaType(this->currentSource, formatId);
+
 		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
 		SafeRelease(&ppSourceReader);
