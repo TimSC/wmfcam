@@ -196,7 +196,7 @@ class MediaFoundation
 {
 protected:
 	IMFSourceReader *currentReader;
-	//IMFMediaSource *sourceList;
+	map<wstring, IMFMediaSource*> sourceList;
 public:
 	MediaFoundation()
 	{
@@ -666,8 +666,21 @@ public:
 		return outIndex;
 	}
 
-	int ActivateDevice(PyObject *sourceId)
+	IMFMediaSource *GetSource(PyObject *sourceId)
 	{
+		//Check if source is already available
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+		map<wstring, IMFMediaSource*>::iterator it = this->sourceList.find(w);
+		if(it != this->sourceList.end())
+		{
+			return it->second;
+		}
+
+		//Open a new source
 		IMFAttributes *pAttributes = NULL;
 		IMFActivate **ppDevices = NULL;
 
@@ -678,7 +691,7 @@ public:
 		int count = EnumDevices(&pAttributes, &ppDevices);
 		IMFActivate *pActivate = ppDevices[sourceNum];
 		
-		IMFMediaSource *source;
+		IMFMediaSource *source = NULL;
 		HRESULT hr = pActivate->ActivateObject(
 			__uuidof(IMFMediaSource),
 			(void**)&source
@@ -690,23 +703,32 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		//this->EnumerateMediaTypes(source);
+		this->sourceList[w] = source;
 
+		SafeRelease(&pAttributes);
+		SafeRelease(ppDevices);
+		return source;
+	}
+	
+	void StartCamera(PyObject *sourceId)
+	{
+		IMFAttributes *pAttributes = NULL;
+		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
+		if(!SUCCEEDED(hr))
+			throw std::runtime_error("MFCreateAttributes failed");
+
+		IMFMediaSource *source = this->GetSource(sourceId);
 		unsigned long formatId = 31;
 		this->SetMediaType(source, formatId);
 
 		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &this->currentReader);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&source);
 			SafeRelease(&pAttributes);
-			SafeRelease(ppDevices);
 			throw std::runtime_error("ActivateObject failed");
 		}
 
 		SafeRelease(&pAttributes);
-		SafeRelease(ppDevices);
-		return 0;
 	}
 
 };
@@ -719,9 +741,8 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("Init", &MediaFoundation::Init)
 		.def("DeInit", &MediaFoundation::DeInit)
 		.def("ListDevices", &MediaFoundation::ListDevices)
-		.def("ActivateDevice", &MediaFoundation::ActivateDevice)
+		.def("StartCamera", &MediaFoundation::StartCamera)
 		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
-		.def("FindSourceWithId", &MediaFoundation::FindSourceWithId)
 		
 	;
 }
