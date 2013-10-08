@@ -205,7 +205,7 @@ public:
 
 	virtual ~MediaFoundation()
 	{
-		//TODO free readers and sources
+
 	}
 
 	void Init()
@@ -221,6 +221,11 @@ public:
 
 	void DeInit()
 	{
+		for(map<wstring, IMFSourceReader*>::iterator it = readerList.begin(); it!=readerList.end(); it++)
+			SafeRelease(&it->second);
+		for(map<wstring, IMFMediaSource*>::iterator it = sourceList.begin(); it!=sourceList.end(); it++)
+			SafeRelease(&it->second);
+
 		MFShutdown();
 
 		CoUninitialize();

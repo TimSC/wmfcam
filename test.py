@@ -12,18 +12,21 @@ if __name__ == "__main__":
     print deviceList
 
     for devNum in range(len(deviceList)):
-        print "Activate", devNum
-        mf.StartCamera(deviceList[0][1])
+        print "Starting", devNum
+        mf.StartCamera(deviceList[devNum][1])
 
-	while 1:
-		time.sleep(0.01)
-		ret = mf.ProcessSamples(deviceList[0][1])
-		if 'buff' in ret:
-                    print ret.keys(), len(ret['buff'])
-                    del ret['buff']
-                else:
-                    print ret.keys()
-                print ret
+    startTime = time.time()
+    while time.time() < startTime + 10.:
+        for devNum in range(len(deviceList)):
+            time.sleep(0.01)
+	    ret = mf.ProcessSamples(deviceList[0][1])
+	    if 'buff' in ret:
+                print ret.keys(), len(ret['buff'])
+                del ret['buff']
+            else:
+                print ret.keys()
+            print ret
+            
     print "Deinit"
     mf.DeInit()
     
