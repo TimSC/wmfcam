@@ -352,6 +352,43 @@ public:
 		PropVariantClear(&var);
 	}
 
+	void EnumerateMediaTypes(IMFMediaSource *pSource)
+	{
+		//Emumerate types
+		IMFPresentationDescriptor *pPD = NULL;
+		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
+		BOOL fSelected;
+		IMFStreamDescriptor *pSD = NULL;
+		hr = pPD->GetStreamDescriptorByIndex(0, &fSelected, &pSD);
+		IMFMediaTypeHandler *pHandler = NULL;
+		hr = pSD->GetMediaTypeHandler(&pHandler);
+		DWORD cTypes = 0;
+		hr = pHandler->GetMediaTypeCount(&cTypes);
+		for (DWORD i = 0; i < cTypes; i++)
+		{
+			IMFMediaType *pType = NULL;
+			hr = pHandler->GetMediaTypeByIndex(i, &pType);
+			
+			UINT32 count = 0;
+			hr = pType->LockStore();
+			hr = pType->GetCount(&count);
+			cout << "MediaType " << i << endl;
+			for(UINT32 j=0; j<count; j++)
+			{
+				//cout << i << "," << j << endl;
+				this->ParseFormat(pType, j);
+			}
+			hr = pType->UnlockStore();
+
+			SafeRelease(&pType);
+
+		}
+		SafeRelease(&pPD);
+		SafeRelease(&pSD);
+		SafeRelease(&pHandler);
+	}
+
+
 	int ActivateDevice(int sourceNum)
 	{
 		IMFAttributes *pAttributes = NULL;
@@ -385,39 +422,7 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		
-		//Emumerate types
-		IMFPresentationDescriptor *pPD = NULL;
-		hr = pSource->CreatePresentationDescriptor(&pPD);
-		BOOL fSelected;
-		IMFStreamDescriptor *pSD = NULL;
-		hr = pPD->GetStreamDescriptorByIndex(0, &fSelected, &pSD);
-		IMFMediaTypeHandler *pHandler = NULL;
-		hr = pSD->GetMediaTypeHandler(&pHandler);
-		DWORD cTypes = 0;
-		hr = pHandler->GetMediaTypeCount(&cTypes);
-		for (DWORD i = 0; i < cTypes; i++)
-		{
-			IMFMediaType *pType = NULL;
-			hr = pHandler->GetMediaTypeByIndex(i, &pType);
-			
-			UINT32 count = 0;
-			hr = pType->LockStore();
-			hr = pType->GetCount(&count);
-			cout << "MediaType " << i << endl;
-			for(UINT32 j=0; j<count; j++)
-			{
-				//cout << i << "," << j << endl;
-				this->ParseFormat(pType, j);
-			}
-			hr = pType->UnlockStore();
-
-			SafeRelease(&pType);
-
-		}
-		SafeRelease(&pPD);
-		SafeRelease(&pSD);
-		SafeRelease(&pHandler);
+		this->EnumerateMediaTypes(pSource);
 
 		SafeRelease(&pSource);
 		SafeRelease(&pAttributes);
