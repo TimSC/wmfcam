@@ -30,7 +30,7 @@ if __name__ == "__main__":
     while time.time() < startTime + 10.:
         for devNum in range(len(deviceList)):
             time.sleep(0.01)
-	    ret = mf.ProcessSamples(deviceList[0][1])
+	    ret = mf.ProcessSamples(deviceList[devNum][1])
 	    if 'buff' in ret:
                 print ret.keys(), len(ret['buff'])
                 del ret['buff']
