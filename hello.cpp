@@ -469,14 +469,15 @@ public:
 		return hr;
 	}
 
-	int ProcessSamples()
+	PyObject* ProcessSamples()
 	{
+		PyObject* out = PyDict_New();
 		IMFSourceReader *pReader = this->currentReader;
 		HRESULT hr = S_OK;
 		IMFSample *pSample = NULL;
 		size_t  cSamples = 0;
 		UINT32 width = 0;
-		UINT32 height = 0;	
+		UINT32 height = 0;
 
 		bool quit = false;
 		while (!quit)
@@ -575,8 +576,11 @@ public:
 					hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
 					cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
 
-					//if(isVideo)
-					//	DecodeViewFrame(ppbBuffer, pcbCurrentLength, width, height, plStride, subTypePtr, log);
+					if(isVideo)
+					{
+						PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
+						PyDict_SetItemString(out, "buff", buff);
+					}
 
 					ppBuffer->Unlock();
 				}
@@ -588,7 +592,7 @@ public:
 
 			if(pSample) pSample->Release();
 
-			return S_OK;
+			return out;
 		}
 
 		if (FAILED(hr))
@@ -600,7 +604,7 @@ public:
 			cout << "Processed "<<cSamples<<" samples" << endl;
 		}
 		if(pSample) pSample->Release();
-		return hr;
+		return out;
 	}
 
 	int ActivateDevice(int sourceNum)

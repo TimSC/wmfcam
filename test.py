@@ -16,8 +16,9 @@ if __name__ == "__main__":
         mf.ActivateDevice(devNum)
 
 	while 1:
-		time.sleep(1.)
-		mf.ProcessSamples()
+		time.sleep(0.01)
+		ret = mf.ProcessSamples()
+                print ret.keys(), len(ret['buff'])
     
     print "Deinit"
     mf.DeInit()
