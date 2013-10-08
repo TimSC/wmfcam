@@ -276,20 +276,10 @@ public:
 
 	    PROPVARIANT var;
 		PropVariantInit(&var);
-		cout << "index" << index
 		HRESULT hr = pType->GetItemByIndex(index, &guid, &var);
 
 		LPCWSTR pcwsz1 = GetGUIDNameConst(guid);
-		LPCWSTR pcwsz2 = GetGUIDNameConst(*var.puuid);
-		if (pcwsz1!=NULL)
-			wcout << pcwsz1 << ", ";
-		else
-			wcout << "guid, ";
-
-		if (pcwsz2!=NULL)
-			wcout << pcwsz2 << endl;
-		else
-			wcout << "guid" << endl;
+		LPCWSTR pcwsz2 = NULL;
 
 		switch (var.vt)
         {
@@ -306,7 +296,7 @@ public:
             break;
 
         case VT_CLSID:
-			
+			pcwsz2 = GetGUIDNameConst(*var.puuid);
             break;
 
         case VT_LPWSTR:
@@ -326,10 +316,21 @@ public:
             break;
         }
 
+		if (pcwsz1!=NULL)
+			wcout << pcwsz1 << ", ";
+		else
+			wcout << "guid, ";
+
+
+		if (pcwsz2!=NULL)
+			wcout << pcwsz2 << endl;
+		else
+			wcout << "guid" << endl;
+
 		//SafeRelease(&pPD);
 		//SafeRelease(&pSD);
 		//SafeRelease(&pHandler);
-		cout << "x" << endl;
+		PropVariantClear(&var);
 	}
 
 	int ActivateDevice(int sourceNum)
