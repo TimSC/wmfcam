@@ -234,6 +234,8 @@ public:
 	int EnumDevices(IMFActivate ***ppDevicesOut)
 	{
 		
+		//Warning: the result from this function must be manually freed!
+
 		//Allocate memory to store devices
 		IMFAttributes *pAttributes = NULL;
 		*ppDevicesOut = NULL;
