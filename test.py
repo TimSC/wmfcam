@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
 	while 1:
 		time.sleep(0.01)
-		ret = mf.ProcessSamples()
+		ret = mf.ProcessSamples(deviceList[0][1])
 		if 'buff' in ret:
                     print ret.keys(), len(ret['buff'])
                     del ret['buff']

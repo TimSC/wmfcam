@@ -195,17 +195,17 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
 class MediaFoundation
 {
 protected:
-	IMFSourceReader *currentReader;
+	map<wstring, IMFSourceReader*> readerList;
 	map<wstring, IMFMediaSource*> sourceList;
 public:
 	MediaFoundation()
 	{
-		this->currentReader = NULL;
+
 	}
 
 	virtual ~MediaFoundation()
 	{
-		SafeRelease(&this->currentReader);
+		//TODO free readers and sources
 	}
 
 	void Init()
@@ -485,10 +485,23 @@ public:
 		return hr;
 	}
 
-	PyObject* ProcessSamples()
+	PyObject* ProcessSamples(PyObject *sourceId)
 	{
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+
+		//Check if reader is ready
+		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
+		if(it == this->readerList.end())
+		{
+			throw std::runtime_error("Reader not ready for this source");
+		}
+
 		PyObject* out = PyDict_New();
-		IMFSourceReader *pReader = this->currentReader;
+		IMFSourceReader *pReader = it->second;
 		HRESULT hr = S_OK;
 		IMFSample *pSample = NULL;
 		UINT32 width = 0;
@@ -712,6 +725,16 @@ public:
 	
 	void StartCamera(PyObject *sourceId)
 	{
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+
+		//Check if reader is already available
+		//TODO
+
+		//Create reader
 		IMFAttributes *pAttributes = NULL;
 		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
 		if(!SUCCEEDED(hr))
@@ -721,12 +744,15 @@ public:
 		unsigned long formatId = 31;
 		this->SetMediaType(source, formatId);
 
-		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &this->currentReader);
+		IMFSourceReader *reader = NULL;
+		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &reader);
 		if(!SUCCEEDED(hr))
 		{
 			SafeRelease(&pAttributes);
 			throw std::runtime_error("ActivateObject failed");
 		}
+
+		this->readerList[w] = reader;
 
 		SafeRelease(&pAttributes);
 	}
