@@ -170,8 +170,10 @@ public:
 			{
 				cout << i << "," << j << endl;
 			}
+			hr = pType->UnlockStore();
 
 			SafeRelease(&pType);
+
 		}
 		SafeRelease(&pPD);
 		SafeRelease(&pSD);
