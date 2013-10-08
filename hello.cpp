@@ -495,6 +495,7 @@ public:
 
 			if (FAILED(hr))
 			{
+				quit = true;
 				break;
 			}
 
@@ -586,6 +587,8 @@ public:
 			}
 
 			if(pSample) pSample->Release();
+
+			return S_OK;
 		}
 
 		if (FAILED(hr))
