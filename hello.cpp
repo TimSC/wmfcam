@@ -231,42 +231,44 @@ public:
 		CoUninitialize();
 	}	
 
-	int EnumDevices(IMFAttributes **pAttributesOut, IMFActivate ***ppDevicesOut)
+	int EnumDevices(IMFActivate ***ppDevicesOut)
 	{
+		
 		//Allocate memory to store devices
-		*pAttributesOut = NULL;
+		IMFAttributes *pAttributes = NULL;
 		*ppDevicesOut = NULL;
-		HRESULT hr = MFCreateAttributes(pAttributesOut, 1);
+		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
 		if(!SUCCEEDED(hr))
 			throw std::runtime_error("MFCreateAttributes failed");
 
-		hr = (*pAttributesOut)->SetGUID(
+		hr = pAttributes->SetGUID(
             MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
             MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
             );
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(pAttributesOut);
+			SafeRelease(&pAttributes);
 			throw std::runtime_error("SetGUID failed");
 		}
 
 		//Get list of devices from media foundation
 		UINT32 count;
-		hr = MFEnumDeviceSources(*pAttributesOut, ppDevicesOut, &count);
+		hr = MFEnumDeviceSources(pAttributes, ppDevicesOut, &count);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(pAttributesOut);
+			SafeRelease(&pAttributes);
 			throw std::runtime_error("MFEnumDeviceSources failed");
 		}
+
+		SafeRelease(&pAttributes);
 		return count;
 	}
 
 	PyObject* ListDevices()
 	{
 		PyObject* out = PyList_New(0);
-		IMFAttributes *pAttributes = NULL;
 		IMFActivate **ppDevices = NULL;
-		int count = EnumDevices(&pAttributes, &ppDevices);
+		int count = EnumDevices(&ppDevices);
 		
 		//For each device
 		for(int i=0; i<count; i++)
@@ -282,7 +284,6 @@ public:
 				);
 			if(!SUCCEEDED(hr))
 			{
-				SafeRelease(&pAttributes);
 				SafeRelease(ppDevices);
 				CoTaskMemFree(vd_pFriendlyName);
 				throw std::runtime_error("GetAllocatedString failed");
@@ -296,7 +297,6 @@ public:
 				);
 			if(!SUCCEEDED(hr))
 			{
-				SafeRelease(&pAttributes);
 				SafeRelease(ppDevices);
 				CoTaskMemFree(vd_pFriendlyName);
 				CoTaskMemFree(symbolicLink);
@@ -312,7 +312,6 @@ public:
 			CoTaskMemFree(symbolicLink);
 		}
 
-		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
 		return out;
 	}
@@ -647,9 +646,8 @@ public:
 		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
 		w[99] = L'\0';
 
-		IMFAttributes *pAttributes = NULL;
 		IMFActivate **ppDevices = NULL;
-		int count = EnumDevices(&pAttributes, &ppDevices);
+		int count = EnumDevices(&ppDevices);
 
 		//For each device
 		for(int i=0; i<count; i++)
@@ -664,7 +662,6 @@ public:
 				);
 			if(!SUCCEEDED(hr))
 			{
-				SafeRelease(&pAttributes);
 				SafeRelease(ppDevices);
 				CoTaskMemFree(symbolicLink);
 				throw std::runtime_error("GetAllocatedString failed");
@@ -679,7 +676,6 @@ public:
 			CoTaskMemFree(symbolicLink);
 		}
 
-		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
 		return outIndex;
 	}
@@ -699,14 +695,13 @@ public:
 		}
 
 		//Open a new source
-		IMFAttributes *pAttributes = NULL;
 		IMFActivate **ppDevices = NULL;
 
 		int sourceNum = FindSourceWithId(sourceId);
 		if (sourceNum < 0)
 			throw std::runtime_error("Source id not found");
 
-		int count = EnumDevices(&pAttributes, &ppDevices);
+		int count = EnumDevices(&ppDevices);
 		IMFActivate *pActivate = ppDevices[sourceNum];
 		
 		IMFMediaSource *source = NULL;
@@ -716,14 +711,12 @@ public:
 			);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&pAttributes);
 			SafeRelease(ppDevices);
 			throw std::runtime_error("ActivateObject failed");
 		}
 
 		this->sourceList[w] = source;
 
-		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
 		return source;
 	}
@@ -748,7 +741,7 @@ public:
 		HRESULT hr = MFCreateAttributes(&pAttributes, 1);
 		if(!SUCCEEDED(hr))
 			throw std::runtime_error("MFCreateAttributes failed");
-
+		
 		IMFMediaSource *source = this->GetSource(sourceId);
 		unsigned long formatId = 31;
 		this->SetMediaType(source, formatId);
