@@ -110,6 +110,9 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
     IF_EQUAL_RETURN(guid, MF_MT_MPEG4_CURRENT_SAMPLE_ENTRY);
     IF_EQUAL_RETURN(guid, MF_MT_ORIGINAL_4CC); 
     IF_EQUAL_RETURN(guid, MF_MT_ORIGINAL_WAVE_FORMAT_TAG);
+
+	//IF_EQUAL_RETURN(guid, FORMAT_VideoInfo); //Dshow dependent
+	//IF_EQUAL_RETURN(guid, FORMAT_VideoInfo2);
     
     // Media types
 
@@ -291,12 +294,13 @@ public:
 		iuval2.LowPart = 0;
 		iuval2.HighPart = 0;
 		int iuval2Set = 0;
+		int ui4 = 0, ui4set = 0;
 
 		switch (var.vt)
         {
         case VT_UI4:
-			iuval2.LowPart = var.ulVal;
-			iuval2Set = 1;
+			ui4 = var.ulVal;
+			ui4set = 1;
             break;
 
         case VT_UI8:
@@ -308,14 +312,7 @@ public:
             break;
 
         case VT_CLSID:
-			cout << "VT_CLSID" << endl;
 			pcwsz2 = GetGUIDNameConst(*var.puuid);
-			cout << (long) pcwsz2 << endl;
-			if (pcwsz2 == NULL)
-			{
-				PrintGuid(*var.puuid);
-			}
-
             break;
 
         case VT_LPWSTR:
@@ -340,11 +337,13 @@ public:
 		else
 			wcout << "guid, ";
 
-
 		if (pcwsz2!=NULL)
 			wcout << pcwsz2;
 		if (iuval2Set)
 			cout << iuval2.HighPart<< ";" << iuval2.LowPart;
+		if (ui4set)
+			cout << ui4;
+
 		cout << endl;
 
 		//SafeRelease(&pPD);
@@ -405,9 +404,10 @@ public:
 			UINT32 count = 0;
 			hr = pType->LockStore();
 			hr = pType->GetCount(&count);
+			cout << "MediaType " << i << endl;
 			for(UINT32 j=0; j<count; j++)
 			{
-				cout << i << "," << j << endl;
+				//cout << i << "," << j << endl;
 				this->ParseFormat(pType, j);
 			}
 			hr = pType->UnlockStore();
