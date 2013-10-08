@@ -13,7 +13,9 @@ if __name__ == "__main__":
 
     for devNum in range(len(deviceList)):
         print "Enumerate Types", devNum
-        mf.EnumerateMediaTypes(deviceList[devNum][1])
+        mediaTypes = mf.EnumerateMediaTypes(deviceList[devNum][1])
+        for tyCount, ty in enumerate(mediaTypes):
+            print tyCount, ty
 
     for devNum in range(len(deviceList)):
         print "Starting", devNum

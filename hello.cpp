@@ -318,7 +318,7 @@ public:
 		return out;
 	}
 
-	void ParseFormat(IMFMediaType *pType, int index)
+	void ParseFormat(IMFMediaType *pType, int index, PyObject *metaDataOut)
 	{
 		GUID guid = { 0 };
 
@@ -371,28 +371,34 @@ public:
         }
 
 		if (pcwsz1!=NULL)
-			wcout << pcwsz1 << ", ";
-		else
-			wcout << "guid, ";
+		{
+			if (pcwsz2!=NULL)
+				PyDict_SetItem(metaDataOut, 
+					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
+					PyUnicode_FromWideChar(pcwsz2, wcslen(pcwsz2)));
 
-		if (pcwsz2!=NULL)
-			wcout << pcwsz2;
-		if (iuval2Set)
-			cout << iuval2.HighPart<< ";" << iuval2.LowPart;
-		if (ui4set)
-			cout << ui4;
+			if (iuval2Set)
+			{
+				PyObject *tup = PyTuple_New(2);
+				PyTuple_SetItem(tup, 0, PyInt_FromLong(iuval2.LowPart));
+				PyTuple_SetItem(tup, 1, PyInt_FromLong(iuval2.HighPart));
+				PyDict_SetItem(metaDataOut, 
+					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
+					tup);
+			}
 
-		cout << endl;
+			if (ui4set)
+				PyDict_SetItem(metaDataOut, 
+					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
+					PyInt_FromLong(ui4));
+		}
 
-		//SafeRelease(&pPD);
-		//SafeRelease(&pSD);
-		//SafeRelease(&pHandler);
 		PropVariantClear(&var);
 	}
 
 	PyObject *EnumerateMediaTypes(PyObject *sourceId)
 	{
-		PyObject *out = Py_None;
+		PyObject *out = PyList_New(0);
 		IMFMediaSource *pSource = this->GetSource(sourceId);
 
 		//Emumerate types
@@ -407,21 +413,23 @@ public:
 		hr = pHandler->GetMediaTypeCount(&cTypes);
 		for (DWORD i = 0; i < cTypes; i++)
 		{
+			PyObject *metaDataOut = PyDict_New();
 			IMFMediaType *pType = NULL;
 			hr = pHandler->GetMediaTypeByIndex(i, &pType);
 			
 			UINT32 count = 0;
 			hr = pType->LockStore();
 			hr = pType->GetCount(&count);
-			cout << "MediaType " << i << endl;
+			
 			for(UINT32 j=0; j<count; j++)
 			{
 				//cout << i << "," << j << endl;
-				this->ParseFormat(pType, j);
+				this->ParseFormat(pType, j, metaDataOut);
 			}
 			hr = pType->UnlockStore();
 
 			SafeRelease(&pType);
+			PyList_Append(out, metaDataOut);
 
 		}
 		SafeRelease(&pPD);
