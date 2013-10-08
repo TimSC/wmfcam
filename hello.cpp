@@ -732,7 +732,11 @@ public:
 		w[99] = L'\0';
 
 		//Check if reader is already available
-		//TODO
+		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
+		if(it != this->readerList.end())
+		{
+			throw std::runtime_error("Camera has already started");
+		}
 
 		//Create reader
 		IMFAttributes *pAttributes = NULL;
