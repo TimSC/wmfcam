@@ -543,8 +543,9 @@ public:
 				if(!SUCCEEDED(hr)) cout << "Error 3\n";
 				BOOL isComp = FALSE;
 				hr = pCurrentType->IsCompressedFormat(&isComp);
-				cout << "iscompressed" << isComp << "\n";
+				//cout << "iscompressed" << isComp << "\n";
 				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
+				LPCWSTR typePtr = GetGUIDNameConst(majorType);
 				if(!SUCCEEDED(hr)) cout << "Error 4\n";
 				hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
 				if(!SUCCEEDED(hr)) cout << "Error 5\n";
@@ -552,7 +553,7 @@ public:
 				if(isVideo)
 				{
 					this->GetDefaultStride(pCurrentType, &plStride);
-					cout << "subtype" <<(subType==MFVideoFormat_RGB32)<<","<<(subType==MFAudioFormat_PCM)<<"\n";
+					//cout << "subtype" <<(subType==MFVideoFormat_RGB32)<<","<<(subType==MFAudioFormat_PCM)<<"\n";
 					hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
 					if(!SUCCEEDED(hr)) cout << "Error 20\n";
 				}
@@ -566,7 +567,7 @@ public:
 
 				IMF2DBuffer *m_p2DBuffer = NULL;
 				ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
-				cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
+				//cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
 
 				if(SUCCEEDED(hr))
 				{
@@ -574,12 +575,17 @@ public:
 					DWORD pcbMaxLength;
 					DWORD pcbCurrentLength;
 					hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
-					cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
+					//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
 
 					if(isVideo)
 					{
 						PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
 						PyDict_SetItemString(out, "buff", buff);
+						if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+						if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+						PyDict_SetItemString(out, "width", PyInt_FromLong(width));
+						PyDict_SetItemString(out, "height", PyInt_FromLong(height));
+						PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
 					}
 
 					ppBuffer->Unlock();

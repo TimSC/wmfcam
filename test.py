@@ -20,8 +20,10 @@ if __name__ == "__main__":
 		ret = mf.ProcessSamples()
 		if 'buff' in ret:
                     print ret.keys(), len(ret['buff'])
+                    del ret['buff']
                 else:
                     print ret.keys()
+                print ret
     print "Deinit"
     mf.DeInit()
     
