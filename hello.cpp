@@ -280,23 +280,38 @@ public:
 
 		LPCWSTR pcwsz1 = GetGUIDNameConst(guid);
 		LPCWSTR pcwsz2 = NULL;
+		ULARGE_INTEGER iuval2;
+		iuval2.LowPart = 0;
+		iuval2.HighPart = 0;
+		int iuval2Set = 0;
 
 		switch (var.vt)
         {
         case VT_UI4:
-
+			iuval2.LowPart = var.ulVal;
+			iuval2Set = 1;
             break;
 
         case VT_UI8:
-          
+			iuval2 = var.uhVal;
+			iuval2Set = 1;
             break;
 
         case VT_R8:
-          
             break;
 
         case VT_CLSID:
+			cout << "VT_CLSID" << endl;
 			pcwsz2 = GetGUIDNameConst(*var.puuid);
+			cout << (long) pcwsz2 << endl;
+			if (pcwsz2 == NULL)
+			{
+				LPOLESTR *lplpsz;
+				StringFromCLSID(*pcwsz2, lplpsz);
+				cout << lplpsz << endl;
+				CoTaskMemFree(lplpsz);
+			}
+
             break;
 
         case VT_LPWSTR:
@@ -323,9 +338,10 @@ public:
 
 
 		if (pcwsz2!=NULL)
-			wcout << pcwsz2 << endl;
-		else
-			wcout << "guid" << endl;
+			wcout << pcwsz2;
+		if (iuval2Set)
+			cout << iuval2.HighPart<< ";" << iuval2.LowPart;
+		cout << endl;
 
 		//SafeRelease(&pPD);
 		//SafeRelease(&pSD);
