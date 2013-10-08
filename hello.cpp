@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <map>
 using namespace std;
 
 #include <boost/python/module.hpp>
@@ -194,20 +195,17 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
 class MediaFoundation
 {
 protected:
-	IMFMediaSource *currentSource;
 	IMFSourceReader *currentReader;
-
+	//IMFMediaSource *sourceList;
 public:
 	MediaFoundation()
 	{
-		this->currentSource = NULL;
 		this->currentReader = NULL;
 	}
 
 	virtual ~MediaFoundation()
 	{
 		SafeRelease(&this->currentReader);
-		SafeRelease(&this->currentSource);
 	}
 
 	void Init()
@@ -680,9 +678,10 @@ public:
 		int count = EnumDevices(&pAttributes, &ppDevices);
 		IMFActivate *pActivate = ppDevices[sourceNum];
 		
+		IMFMediaSource *source;
 		HRESULT hr = pActivate->ActivateObject(
 			__uuidof(IMFMediaSource),
-			(void**)&currentSource
+			(void**)&source
 			);
 		if(!SUCCEEDED(hr))
 		{
@@ -691,15 +690,15 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		//this->EnumerateMediaTypes(this->currentSource);
+		//this->EnumerateMediaTypes(source);
 
 		unsigned long formatId = 31;
-		this->SetMediaType(this->currentSource, formatId);
+		this->SetMediaType(source, formatId);
 
-		hr = MFCreateSourceReaderFromMediaSource(currentSource, pAttributes, &this->currentReader);
+		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &this->currentReader);
 		if(!SUCCEEDED(hr))
 		{
-			SafeRelease(&this->currentSource);
+			SafeRelease(&source);
 			SafeRelease(&pAttributes);
 			SafeRelease(ppDevices);
 			throw std::runtime_error("ActivateObject failed");
