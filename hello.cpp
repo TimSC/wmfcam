@@ -195,15 +195,18 @@ class MediaFoundation
 {
 protected:
 	IMFMediaSource *currentSource;
+	IMFSourceReader *currentReader;
 
 public:
 	MediaFoundation()
 	{
 		this->currentSource = NULL;
+		this->currentReader = NULL;
 	}
 
 	virtual ~MediaFoundation()
 	{
+		SafeRelease(&this->currentReader);
 		SafeRelease(&this->currentSource);
 	}
 
@@ -466,8 +469,9 @@ public:
 		return hr;
 	}
 
-	HRESULT ProcessSamples(IMFSourceReader *pReader)
+	int ProcessSamples()
 	{
+		IMFSourceReader *pReader = this->currentReader;
 		HRESULT hr = S_OK;
 		IMFSample *pSample = NULL;
 		size_t  cSamples = 0;
@@ -623,8 +627,7 @@ public:
 		unsigned long formatId = 31;
 		this->SetMediaType(this->currentSource, formatId);
 
-		IMFSourceReader *ppSourceReader = NULL;
-		hr = MFCreateSourceReaderFromMediaSource(currentSource, pAttributes, &ppSourceReader);
+		hr = MFCreateSourceReaderFromMediaSource(currentSource, pAttributes, &this->currentReader);
 		if(!SUCCEEDED(hr))
 		{
 			SafeRelease(&this->currentSource);
@@ -633,11 +636,8 @@ public:
 			throw std::runtime_error("ActivateObject failed");
 		}
 
-		ProcessSamples(ppSourceReader);
-
 		SafeRelease(&pAttributes);
 		SafeRelease(ppDevices);
-		SafeRelease(&ppSourceReader);
 		return 0;
 	}
 
@@ -652,5 +652,6 @@ BOOST_PYTHON_MODULE(hello_ext)
 		.def("DeInit", &MediaFoundation::DeInit)
 		.def("ListDevices", &MediaFoundation::ListDevices)
 		.def("ActivateDevice", &MediaFoundation::ActivateDevice)
+		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
 	;
 }

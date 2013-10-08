@@ -15,7 +15,9 @@ if __name__ == "__main__":
         print "Activate", devNum
         mf.ActivateDevice(devNum)
 
-    time.sleep(1.)
+	while 1:
+		time.sleep(1.)
+		mf.ProcessSamples()
     
     print "Deinit"
     mf.DeInit()
