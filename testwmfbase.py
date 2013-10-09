@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     for devNum in range(len(deviceList)):
         print "Set Media Type", devNum
-        mediaIndex = 0
+        mediaIndex = 31
         mf.SetMediaType(deviceList[devNum][1], mediaIndex)
 
     for devNum in range(len(deviceList)):

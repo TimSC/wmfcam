@@ -769,6 +769,22 @@ public:
 		return source;
 	}
 	
+	int IsCameraRunning(PyObject *sourceId)
+	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+
+		//Check if reader is already available
+		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
+		return it != this->readerList.end();
+	}
+
 	void StartCamera(PyObject *sourceId)
 	{
 		if(!this->initDone)
@@ -822,5 +838,6 @@ BOOST_PYTHON_MODULE(wmfbase)
 		.def("ProcessSamples", &MediaFoundation::ProcessSamples)
 		.def("EnumerateMediaTypes", &MediaFoundation::EnumerateMediaTypes)
 		.def("SetMediaType", &MediaFoundation::SetMediaType)
+		.def("IsCameraRunning", &MediaFoundation::IsCameraRunning)
 	;
 }

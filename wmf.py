@@ -6,11 +6,19 @@ class wmfsource(object):
         self.friendlyName = "Video source"
         self._deviceId = deviceId
         self._mf = mf
-        self._mf.StartCamera(self._deviceId)
         
     def GetFrame(self):
+        if not self._mf.IsCameraRunning(self._deviceId):
+            self._mf.StartCamera(self._deviceId)
         frame = self._mf.ProcessSamples(self._deviceId)
         return frame
+
+    def GetMediaTypes(self):
+        mediaTypes = self._mf.EnumerateMediaTypes(self._deviceId)
+        return mediaTypes
+
+    def SetMediaType(self, typeIndex):
+        self._mf.SetMediaType(self._deviceId, typeIndex)
 
 class wmf(object):
     def __init__(self):
@@ -31,12 +39,19 @@ class wmf(object):
 
 if __name__ == "__main__":
     wmfobj = wmf()
-    print "Number of video sources", len(wmfobj)
+    print "Number of video sources:", len(wmfobj)
 
     cam0 = wmfobj[0]
 
-    print cam0.friendlyName    
+    print cam0.friendlyName
+    print "Media types available:", len(cam0.GetMediaTypes())
+    cam0.SetMediaType(31)
 
     for i in range(100):
         frame = cam0.GetFrame()
-        print frame.keys()
+        print frame.keys(),
+        if 'subtype' in frame: print frame['subtype'],
+        if 'width' in frame: print frame['width'],
+        if 'height' in frame: print frame['height'],
+        print ""
+        
