@@ -12,16 +12,16 @@ class wmfsource(object):
         if not self._mf.IsCameraRunning(self._deviceId):
             self._mf.StartCamera(self._deviceId)
         frame = self._mf.ProcessSamples(self._deviceId)
+        frame['pix'] = None
 
         #Decode pixels into RGB
         if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_MJPG":
             jpg = cStringIO.StringIO()
             parseJpeg = mjpeg.ParseJpeg()
             parseJpeg.InsertHuffmanTable(cStringIO.StringIO(frame['buff']), jpg)
-            jpgbin = jpg.getvalue()
-            print len(frame['buff']), len(jpgbin)
+            jpg.seek(0)
             im = Image.open(jpg)
-            print im
+            frame['pix'] = im
         
         return frame
 
