@@ -17,6 +17,8 @@ using namespace std;
 #include <mfreadwrite.h>
 #include <Mferror.h>
 
+#include "pixbuff.h"
+
 #define MAX_DEVICE_ID_LEN 100
 
 template <class T> void SafeRelease(T **ppT)
