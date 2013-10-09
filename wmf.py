@@ -30,7 +30,7 @@ def DecodeYuy2ToPilImage(buff, height, width, stride):
     return out
 
 def FastDecodeYuy2ToPilImage(buff, height, width, stride):
-    out = np.empty((height, width, 3), dtype=np.uint8)
+    out = bytearray(height * width * 3)
     wmfbase.DecodeYuy2ToPilImage(buff, height, width, stride, out)
     return out
 
@@ -112,7 +112,8 @@ if __name__ == "__main__":
             print ""
 
             if 'pix' in frame and frame['pix'] is not None:
-                pilImg = Image.fromarray(frame['pix'])
+                print len(frame['pix'])
+                pilImg = Image.fromstring("RGB", (frame['width'], frame['height']), str(frame['pix']))
                 pilImg.save("img{0}.jpg".format(i))
 
         print "Stop camera"
