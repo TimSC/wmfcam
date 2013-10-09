@@ -26,10 +26,10 @@ void DecodeYuy2ToPilImage(PyObject *buff, int height, int width, int stride, PyO
 			PyObject* pixelOut1 = PySequence_GetItem(lineOut, pxPairNum*2);
 			PyObject* pixelOut2 = PySequence_GetItem(lineOut, pxPairNum*2+1);
 
-            char Y1 = buffIn[pxPairNum * 4 + lineOffset];
-            char Cb = buffIn[pxPairNum * 4 + lineOffset + 1];
-            char Y2 = buffIn[pxPairNum * 4 + lineOffset + 2];
-            char Cr = buffIn[pxPairNum * 4 + lineOffset + 3];
+            unsigned char Y1 = buffIn[pxPairNum * 4 + lineOffset];
+            unsigned char Cb = buffIn[pxPairNum * 4 + lineOffset + 1];
+            unsigned char Y2 = buffIn[pxPairNum * 4 + lineOffset + 2];
+            unsigned char Cr = buffIn[pxPairNum * 4 + lineOffset + 3];
 
             //ITU-R BT.601 colour conversion
             double R1 = (Y1 + 1.402 * (Cr - 128));
