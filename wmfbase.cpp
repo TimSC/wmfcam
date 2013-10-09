@@ -17,6 +17,8 @@ using namespace std;
 #include <mfreadwrite.h>
 #include <Mferror.h>
 
+#define MAX_DEVICE_ID_LEN 100
+
 template <class T> void SafeRelease(T **ppT)
 {
     if (*ppT)
@@ -541,9 +543,9 @@ public:
 
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 
 		//Check if reader is ready
 		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
@@ -690,9 +692,9 @@ public:
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
 
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 
 		IMFActivate **ppDevices = NULL;
 		int count = EnumDevices(&ppDevices);
@@ -733,9 +735,9 @@ public:
 		//Check if source is already available
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 		map<wstring, IMFMediaSource*>::iterator it = this->sourceList.find(w);
 		if(it != this->sourceList.end())
 		{
@@ -776,9 +778,9 @@ public:
 
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 
 		//Check if reader is already available
 		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
@@ -792,9 +794,9 @@ public:
 
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 
 		//Check if reader is already available
 		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
@@ -831,9 +833,9 @@ public:
 
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
-		wchar_t w[100];
-		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
-		w[99] = L'\0';
+		wchar_t w[MAX_DEVICE_ID_LEN];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
+		w[MAX_DEVICE_ID_LEN-1] = L'\0';
 
 		//Check if reader is already available
 		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
