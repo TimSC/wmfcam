@@ -816,12 +816,44 @@ public:
 		if(!SUCCEEDED(hr))
 		{
 			SafeRelease(&pAttributes);
-			throw std::runtime_error("ActivateObject failed");
+			throw std::runtime_error("MFCreateSourceReaderFromMediaSource failed");
 		}
 
 		this->readerList[w] = reader;
 
 		SafeRelease(&pAttributes);
+	}
+
+	void StopCamera(PyObject *sourceId)
+	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
+		if(!PyUnicode_CheckExact(sourceId))
+			throw std::runtime_error("Argument must be a Unicode object");
+		wchar_t w[100];
+		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, 100);
+		w[99] = L'\0';
+
+		//Check if reader is already available
+		map<wstring, IMFSourceReader*>::iterator it = this->readerList.find(w);
+		if(it != this->readerList.end())
+		{
+			//Shut down reader
+			SafeRelease(&it->second);
+
+			this->readerList.erase(it);
+		}
+
+		//Check if source is already available
+		map<wstring, IMFMediaSource*>::iterator its = this->sourceList.find(w);
+		if(its != this->sourceList.end())
+		{
+			//Shut down source
+			SafeRelease(&its->second);
+
+			this->sourceList.erase(its);
+		}
 	}
 
 };
@@ -839,5 +871,6 @@ BOOST_PYTHON_MODULE(wmfbase)
 		.def("EnumerateMediaTypes", &MediaFoundation::EnumerateMediaTypes)
 		.def("SetMediaType", &MediaFoundation::SetMediaType)
 		.def("IsCameraRunning", &MediaFoundation::IsCameraRunning)
+		.def("StopCamera", &MediaFoundation::StopCamera)
 	;
 }

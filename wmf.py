@@ -32,6 +32,9 @@ class wmfsource(object):
     def SetMediaType(self, typeIndex):
         self._mf.SetMediaType(self._deviceId, typeIndex)
 
+    def Stop(self):
+        self._mf.StopCamera(self._deviceId)
+
 class wmf(object):
     def __init__(self):
         self._mf = wmfbase.MediaFoundation()
@@ -59,11 +62,18 @@ if __name__ == "__main__":
     print "Media types available:", len(cam0.GetMediaTypes())
     cam0.SetMediaType(31)
 
-    for i in range(100):
-        frame = cam0.GetFrame()
-        print frame.keys(),
-        if 'subtype' in frame: print frame['subtype'],
-        if 'width' in frame: print frame['width'],
-        if 'height' in frame: print frame['height'],
-        print ""
-        
+    for j in range(2):
+        for i in range(100):
+            frame = cam0.GetFrame()
+            print frame.keys(),
+            if 'subtype' in frame: print frame['subtype'],
+            if 'width' in frame: print frame['width'],
+            if 'height' in frame: print frame['height'],
+            print ""
+
+        print "Stop camera"
+        cam0.Stop()
+
+        time.sleep(5)
+
+    
