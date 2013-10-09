@@ -4,28 +4,28 @@ import wmfbase, time
 class wmfsource(object):
     def __init__(self, mf, deviceId):
         self.friendlyName = "Video source"
-        self.deviceId = deviceId
-        self.mf = mf
-        self.device = self.mf.StartCamera(self.deviceId)
+        self._deviceId = deviceId
+        self._mf = mf
+        self._mf.StartCamera(self._deviceId)
         
     def GetFrame(self):
-        frame = self.mf.ProcessSamples(self.deviceId)
+        frame = self._mf.ProcessSamples(self._deviceId)
         return frame
 
 class wmf(object):
     def __init__(self):
-        self.mf = wmfbase.MediaFoundation()
-        self.mf.Init()
+        self._mf = wmfbase.MediaFoundation()
+        self._mf.Init()
 
     def __len__(self):
-        deviceList = self.mf.ListDevices()
+        deviceList = self._mf.ListDevices()
         return len(deviceList)
 
     def __getitem__(self, key):
-        deviceList = self.mf.ListDevices()
+        deviceList = self._mf.ListDevices()
         selectedDeviceInfo = deviceList[key]
         
-        vidsrc = wmfsource(self.mf, selectedDeviceInfo[1])
+        vidsrc = wmfsource(self._mf, selectedDeviceInfo[1])
         vidsrc.friendlyName = selectedDeviceInfo[0]
         return vidsrc
 
