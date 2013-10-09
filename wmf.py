@@ -40,8 +40,8 @@ class wmfsource(object):
         frame = self._mf.ProcessSamples(self._deviceId)
         frame['pix'] = None
 
-        #Decode MJPEG pixels into RGB
         if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_MJPG":
+            #Decode MJPEG pixels to RGB
             jpg = cStringIO.StringIO()
             parseJpeg = mjpeg.ParseJpeg()
             parseJpeg.InsertHuffmanTable(cStringIO.StringIO(frame['buff']), jpg)
@@ -50,6 +50,7 @@ class wmfsource(object):
             frame['pix'] = im
 
         if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_YUY2":
+            #Decode YUY2 to RGB
             frame['pix'] = DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
         
         return frame
