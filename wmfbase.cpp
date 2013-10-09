@@ -197,10 +197,11 @@ class MediaFoundation
 protected:
 	map<wstring, IMFSourceReader*> readerList;
 	map<wstring, IMFMediaSource*> sourceList;
+	int initDone;
 public:
 	MediaFoundation()
 	{
-
+		this->initDone = false;
 	}
 
 	virtual ~MediaFoundation()
@@ -210,6 +211,9 @@ public:
 
 	void Init()
 	{
+		if(this->initDone)
+			throw runtime_error("Media Foundation init already done");
+
 		HRESULT hr = MFStartup(MF_VERSION);
 		if(!SUCCEEDED(hr))
 			throw std::runtime_error("Media foundation startup failed");
@@ -217,10 +221,15 @@ public:
 		hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 		if(!SUCCEEDED(hr))
 			throw std::runtime_error("CoInitializeEx failed");
+
+		this->initDone = true;
 	}
 
 	void DeInit()
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		for(map<wstring, IMFSourceReader*>::iterator it = readerList.begin(); it!=readerList.end(); it++)
 			SafeRelease(&it->second);
 		for(map<wstring, IMFMediaSource*>::iterator it = sourceList.begin(); it!=sourceList.end(); it++)
@@ -229,6 +238,8 @@ public:
 		MFShutdown();
 
 		CoUninitialize();
+
+		this->initDone = false;
 	}	
 
 	int EnumDevices(IMFActivate ***ppDevicesOut)
@@ -268,6 +279,9 @@ public:
 
 	PyObject* ListDevices()
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		PyObject* out = PyList_New(0);
 		IMFActivate **ppDevices = NULL;
 		int count = EnumDevices(&ppDevices);
@@ -398,6 +412,9 @@ public:
 
 	PyObject *EnumerateMediaTypes(PyObject *sourceId)
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		PyObject *out = PyList_New(0);
 		IMFMediaSource *pSource = this->GetSource(sourceId);
 
@@ -440,6 +457,9 @@ public:
 
 	void SetMediaType(PyObject *sourceId, unsigned long dwFormatIndex)
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		IMFMediaSource *pSource = this->GetSource(sourceId);
 
 		IMFPresentationDescriptor *pPD = NULL;
@@ -516,6 +536,9 @@ public:
 
 	PyObject* ProcessSamples(PyObject *sourceId)
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
 		wchar_t w[100];
@@ -748,6 +771,9 @@ public:
 	
 	void StartCamera(PyObject *sourceId)
 	{
+		if(!this->initDone)
+			throw runtime_error("Media Foundation init not done");
+
 		if(!PyUnicode_CheckExact(sourceId))
 			throw std::runtime_error("Argument must be a Unicode object");
 		wchar_t w[100];
