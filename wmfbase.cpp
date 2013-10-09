@@ -866,6 +866,8 @@ BOOST_PYTHON_MODULE(wmfbase)
 {
     using namespace boost::python;
 
+	def("DecodeYuy2ToPilImage", DecodeYuy2ToPilImage);
+
 	class_<MediaFoundation>("MediaFoundation")
 		.def("Init", &MediaFoundation::Init)
 		.def("DeInit", &MediaFoundation::DeInit)
