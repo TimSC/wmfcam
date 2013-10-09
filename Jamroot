@@ -24,7 +24,7 @@ project
 
 # Declare the three extension modules.  You can specify multiple
 # source files after the colon separated by spaces.
-python-extension hello_ext : hello.cpp 
+python-extension wmfbase : wmfbase.cpp 
     :
     <library-path>"C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\Lib"
     <library-file>Mfplat.lib
@@ -37,7 +37,7 @@ python-extension hello_ext : hello.cpp
 # Put the extension and Boost.Python DLL in the current directory, so
 # that running script by hand works.
 install convenient_copy 
-  : hello_ext 
+  : wmfbase 
   : <install-dependencies>on <install-type>SHARED_LIB <install-type>PYTHON_EXTENSION 
     <location>. 
   ;

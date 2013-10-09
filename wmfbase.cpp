@@ -784,7 +784,7 @@ public:
 
 };
 
-BOOST_PYTHON_MODULE(hello_ext)
+BOOST_PYTHON_MODULE(wmfbase)
 {
     using namespace boost::python;
 

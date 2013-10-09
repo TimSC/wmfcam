@@ -1,8 +1,8 @@
 
-import hello_ext, time
+import wmfbase, time
 
 if __name__ == "__main__":
-    mf = hello_ext.MediaFoundation()
+    mf = wmfbase.MediaFoundation()
 
     print "Init"
     mf.Init()
