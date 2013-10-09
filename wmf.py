@@ -10,11 +10,22 @@ def DecodeYuy2PixelBuffer(buff, height, width, stride):
     for lineNum in range(height):
         lineOffset = lineNum * stride
         for pxPairNum in range(width / 2):
-            y1 = buff[pxPairNum * 4 + lineOffset]
-            y2 = buff[pxPairNum * 4 + lineOffset+2]
-            outl[pxPairNum*2, lineNum] = (y1, y1, y1)
-            outl[pxPairNum*2+1, lineNum] = (y2, y2, y2)
-    
+            Y1 = buff[pxPairNum * 4 + lineOffset]
+            Cb = buff[pxPairNum * 4 + lineOffset + 1]
+            Y2 = buff[pxPairNum * 4 + lineOffset + 2]
+            Cr = buff[pxPairNum * 4 + lineOffset + 3]
+            
+            R1 = (Y1 + 1.402 * (Cr - 128))
+            G1 = (Y1 - 0.344 * (Cb - 128) - 0.714 * (Cr - 128))
+            B1 = (Y1 + 1.772 * (Cb - 128))
+            R2 = (Y2 + 1.402 * (Cr - 128))
+            G2 = (Y2 - 0.344 * (Cb - 128) - 0.714 * (Cr - 128))
+            B2 = (Y2 + 1.772 * (Cb - 128))
+            #print R, G, B
+
+            outl[pxPairNum*2, lineNum] = tuple(map(int, (R1, G1, B1)))
+            outl[pxPairNum*2+1, lineNum] = tuple(map(int, (R2, G2, B2)))
+   
     return out
 
 class wmfsource(object):
