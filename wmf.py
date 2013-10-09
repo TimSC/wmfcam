@@ -29,6 +29,11 @@ def DecodeYuy2ToPilImage(buff, height, width, stride):
    
     return out
 
+def FastDecodeYuy2ToPilImage(buff, height, width, stride):
+    out = np.empty((height, width, 3), dtype=np.uint8)
+    wmfbase.DecodeYuy2ToPilImage(buff, height, width, stride, out)
+    return out
+
 class wmfsource(object):
     def __init__(self, mf, deviceId):
         self.friendlyName = "Video source"
@@ -52,9 +57,11 @@ class wmfsource(object):
 
         if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_YUY2":
             #Decode YUY2 to RGB
+            pass
             #frame['pix'] = DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
-            frame['pix'] = np.empty((frame['height'], frame['width'], 3), dtype=np.uint8)
-            wmfbase.DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'], frame['pix'])
+            #frame['pix'] = np.empty((frame['height'], frame['width'], 3), dtype=np.uint8)
+            #wmfbase.DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'], frame['pix'])
+            frame['pix'] = FastDecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
         
         return frame
 
