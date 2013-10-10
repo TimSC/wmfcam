@@ -138,6 +138,8 @@ if __name__ == "__main__":
                         print "FR", camNum, len(frameTimes) / (frameTimes[-1] - frameTimes[0])
                 statTime = tiNow
 
+            time.sleep(0.01)
+
         for cam in cams:
             print "Stop camera"
             cam.Stop()
