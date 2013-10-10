@@ -242,7 +242,6 @@ done:
 	return hr;
 }
 
-
 DWORD SampleToStaticObj(IMFSample *pSample, char **buff)
 {
 	if(*buff!=NULL)
@@ -275,6 +274,62 @@ DWORD SampleToStaticObj(IMFSample *pSample, char **buff)
 	if(ppBuffer) ppBuffer->Release();
 	return pcbCurrentLength;
 }
+
+PyObject* StaticObjToPythonObj(IMFSourceReader *pReader, 
+	DWORD streamIndex, 
+	DWORD flags, 
+	LONGLONG llTimeStamp, 
+	char *frame, DWORD buffLen)
+{
+	UINT32 width = 0;
+	UINT32 height = 0;
+	PyObject* out = PyDict_New();
+
+	if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+	{
+		PyDict_SetItemString(out, "end", PyInt_FromLong(1));
+		return out;
+	}
+	else
+		PyDict_SetItemString(out, "end", PyInt_FromLong(0));
+	PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
+
+	if (flags & MF_SOURCE_READERF_NEWSTREAM)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_STREAMTICK)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+	{
+	}
+
+	if (frame!=NULL && buffLen > 0)
+	{
+		//PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
+		PyObject* buff = PyByteArray_FromStringAndSize((const char *)frame, buffLen);
+		PyDict_SetItemString(out, "buff", buff);
+		const WCHAR *typePtr = L"MFMediaType_Video";
+		const WCHAR *subTypePtr = L"MFVideoFormat_YUY2";
+		if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+		if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+
+		//if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
+		//PyDict_SetItemString(out, "width", PyInt_FromLong(width));
+		//PyDict_SetItemString(out, "height", PyInt_FromLong(height));
+
+		PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
+	}
+
+	return out;
+}
+
 
 class SourceReaderCB : public IMFSourceReaderCallback
 {
@@ -782,11 +837,18 @@ public:
 			int found = pCallback->GetFrame(&hrStatus, &dwStreamIndex,
 				&dwStreamFlags, &llTimestamp, &frame, &buffLen);
 
+			//cout << (long) frame << "," << buffLen << endl;
 			if(found)
 			{
-				cout << buffLen << endl;
+				assert((frame == NULL) == (buffLen == 0));
+				PyObject* out = StaticObjToPythonObj(pReader, 
+					streamIndex, 
+					flags, 
+					llTimeStamp, 
+					frame, buffLen);
+					
 				delete [] frame;
-				return PyDict_New();
+				return out;
 			}
 			else
 				return PyDict_New();
