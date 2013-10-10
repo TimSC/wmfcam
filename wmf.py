@@ -97,24 +97,37 @@ if __name__ == "__main__":
     print "Number of video sources:", len(wmfobj)
 
     cam0 = wmfobj[0]
+    li = []
+    statTime = 0.
 
     print cam0.friendlyName
     print "Media types available:", len(cam0.GetMediaTypes())
     #cam0.SetMediaType(31)
 
     for j in range(1):
-        for i in range(10):
+        for i in range(1000):
             frame = cam0.GetFrame()
-            print frame.keys(),
-            if 'subtype' in frame: print frame['subtype'],
-            if 'width' in frame: print frame['width'],
-            if 'height' in frame: print frame['height'],
-            print ""
+
+            #Estimate frame rate
+            tiNow = time.time()
+            li.append(tiNow)
+            while len(li) > 10:
+                li.pop(0)
+            if tiNow > statTime + 1. and len(li) > 2:
+                print len(li) / (li[-1] - li[0])
+                statTime = tiNow
+            
+            if 0:
+                print frame.keys(),
+                if 'subtype' in frame: print frame['subtype'],
+                if 'width' in frame: print frame['width'],
+                if 'height' in frame: print frame['height'],
+                print ""
 
             if 'pix' in frame and frame['pix'] is not None:
-                print len(frame['pix'])
+                #print len(frame['pix'])
                 pilImg = Image.fromstring("RGB", (frame['width'], frame['height']), str(frame['pix']))
-                pilImg.save("img{0}.jpg".format(i))
+                #pilImg.save("img{0}.jpg".format(i))
 
         print "Stop camera"
         cam0.Stop()
