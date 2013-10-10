@@ -245,7 +245,7 @@ done:
 
 DWORD SampleToStaticObj(IMFSample *pSample, char **buff)
 {
-	if(buff!=NULL)
+	if(*buff!=NULL)
 		throw runtime_error("Buff ptr should be initially null");
 	IMFMediaBuffer *ppBuffer = NULL;
 	HRESULT hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
@@ -283,7 +283,7 @@ public:
 	LONG volatile m_nRefCount;
 	CRITICAL_SECTION lock;
 	int framePending;
-	IMFSourceReader *pReader;
+	unsigned int maxNumFrames;
 
 	vector<char *> frameBuff;
 	vector<DWORD> frameLenBuff;
@@ -297,17 +297,14 @@ public:
 		m_nRefCount = 0;
 		framePending = 0;
 		InitializeCriticalSection(&lock);
-		pReader = NULL;
+		maxNumFrames = 10;
 	}
 
 	virtual ~SourceReaderCB()
 	{
 		 DeleteCriticalSection(&lock);
-	}
-
-	void SetReader(IMFSourceReader *pReaderIn)
-	{
-		this->pReader = pReaderIn;
+		 for(unsigned int i=0; i<this->frameBuff.size(); i++)
+			 delete [] this->frameBuff[i];
 	}
 
 	STDMETHODIMP QueryInterface(REFIID iid, void** ppv)
@@ -326,10 +323,12 @@ public:
 		//cout << "OnReadSample: " << llTimestamp << endl;
 		EnterCriticalSection(&lock);
 
-		if (pSample)
+		if (pSample && this->frameBuff.size() < this->maxNumFrames)
 		{
 			char *buff = NULL;
 			DWORD buffLen = SampleToStaticObj(pSample, &buff);
+			//cout << (long) buff << "," << buffLen << endl;
+			//if(buff!=NULL) delete [] buff;
 
 			frameBuff.push_back(buff);
 			frameLenBuff.push_back(buffLen);
@@ -411,7 +410,7 @@ public:
 		EnterCriticalSection(&lock);
 		if(this->frameBuff.size()>0)
 		{
-			/**frame = frameBuff[0];
+			*frame = frameBuff[0];
 			*buffLen = frameLenBuff[0];
 			*hrStatus = hrStatusBuff[0];
 			*dwStreamIndex = dwStreamIndexBuff[0];
@@ -424,7 +423,7 @@ public:
 			this->dwStreamIndexBuff.erase(this->dwStreamIndexBuff.begin());
 			this->dwStreamFlagsBuff.erase(this->dwStreamFlagsBuff.begin());
 			this->llTimestampBuff.erase(this->llTimestampBuff.begin());
-			ret = 1;*/
+			ret = 1;
 		}
 		LeaveCriticalSection(&lock);
 		return ret;
@@ -782,10 +781,13 @@ public:
 
 			int found = pCallback->GetFrame(&hrStatus, &dwStreamIndex,
 				&dwStreamFlags, &llTimestamp, &frame, &buffLen);
-			cout << found << endl;
 
 			if(found)
+			{
+				cout << buffLen << endl;
+				delete [] frame;
 				return PyDict_New();
+			}
 			else
 				return PyDict_New();
 		}
@@ -962,7 +964,6 @@ public:
 		}
 
 		this->readerList[w] = reader;
-		pCallback->SetReader(reader);
 
 		SafeRelease(&pAttributes);
 	}
