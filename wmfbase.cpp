@@ -251,6 +251,9 @@ PyObject* SampleToPythonObj(IMFSourceReader *pReader,
 {
 	UINT32 width = 0;
 	UINT32 height = 0;
+	if(pReader == NULL)
+		throw runtime_error("pReader ptr cannot be NULL");
+
 	PyObject* out = PyDict_New();
 
 	if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
@@ -349,17 +352,25 @@ public:
 	LONG volatile m_nRefCount;
 	CRITICAL_SECTION lock;
 	int framePending;
+	IMFSourceReader *pReader;
+	vector<PyObject *> frameBuff;
 
 	SourceReaderCB()
 	{
 		m_nRefCount = 0;
 		framePending = 0;
 		InitializeCriticalSection(&lock);
+		pReader = NULL;
 	}
 
 	virtual ~SourceReaderCB()
 	{
 		 DeleteCriticalSection(&lock);
+	}
+
+	void SetReader(IMFSourceReader *pReaderIn)
+	{
+		this->pReader = pReaderIn;
 	}
 
 	STDMETHODIMP QueryInterface(REFIID iid, void** ppv)
@@ -375,14 +386,19 @@ public:
     STDMETHODIMP OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex,
         DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample)
 	{
-		cout << "OnReadSample: " << llTimestamp << endl;
+		//cout << "OnReadSample: " << llTimestamp << endl;
+		EnterCriticalSection(&lock);
+
 		if (pSample)
 		{
-			//DO stuff
-			
+			PyObject *pyObj = SampleToPythonObj(this->pReader, 
+				dwStreamIndex, 
+				dwStreamFlags, 
+				llTimestamp, 
+				pSample);
+			this->frameBuff.push_back(pyObj);
 		}
 
-		EnterCriticalSection(&lock);
 		this->framePending = 0;
 		LeaveCriticalSection(&lock);
 		return S_OK;
@@ -440,6 +456,19 @@ public:
 			Sleep(10);
 		}
     }
+
+	PyObject *GetFrame()
+	{
+		PyObject *out = NULL;
+		EnterCriticalSection(&lock);
+		if(this->frameBuff.size()>0)
+		{
+			out = this->frameBuff[0];
+			this->frameBuff.erase(this->frameBuff.begin());
+		}
+		LeaveCriticalSection(&lock);
+		return out;
+	}
    
 };
 
@@ -769,8 +798,8 @@ public:
 		IMFSample *pSample = NULL;
 		int camAsyncMode = this->asyncMode[w];
 
-		DWORD streamIndex, flags;
-		LONGLONG llTimeStamp;
+		DWORD streamIndex=0, flags=0;
+		LONGLONG llTimeStamp=0;
 
 		if(camAsyncMode)
 		{
@@ -783,6 +812,12 @@ public:
 					);
 				pCallback->SetPending();
 			}
+
+			PyObject *frame = pCallback->GetFrame();
+			if(frame!=NULL)
+				return frame;
+			else
+				return PyDict_New();
 		}
 		else
 		{
@@ -957,6 +992,7 @@ public:
 		}
 
 		this->readerList[w] = reader;
+		pCallback->SetReader(reader);
 
 		SafeRelease(&pAttributes);
 	}
