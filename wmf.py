@@ -3,32 +3,6 @@ import wmfbase, time, mjpeg, cStringIO
 from PIL import Image
 import numpy as np
 
-def DecodeYuy2ToPilImage(buff, height, width, stride):
-    print len(buff), height, width, stride
-    out = Image.new("RGB", (width, height))
-    outl = out.load()
-    
-    for lineNum in range(height):
-        lineOffset = lineNum * stride
-        for pxPairNum in range(width / 2):
-            Y1 = buff[pxPairNum * 4 + lineOffset]
-            Cb = buff[pxPairNum * 4 + lineOffset + 1]
-            Y2 = buff[pxPairNum * 4 + lineOffset + 2]
-            Cr = buff[pxPairNum * 4 + lineOffset + 3]
-
-            #ITU-R BT.601 colour conversion
-            R1 = (Y1 + 1.402 * (Cr - 128))
-            G1 = (Y1 - 0.344 * (Cb - 128) - 0.714 * (Cr - 128))
-            B1 = (Y1 + 1.772 * (Cb - 128))
-            R2 = (Y2 + 1.402 * (Cr - 128))
-            G2 = (Y2 - 0.344 * (Cb - 128) - 0.714 * (Cr - 128))
-            B2 = (Y2 + 1.772 * (Cb - 128))
-
-            outl[pxPairNum*2, lineNum] = tuple(map(int, (R1, G1, B1)))
-            outl[pxPairNum*2+1, lineNum] = tuple(map(int, (R2, G2, B2)))
-   
-    return out
-
 def FastDecodeYuy2ToPilImage(buff, height, width, stride):
     out = bytearray(height * width * 3)
     wmfbase.DecodeYuy2ToPilImage(buff, height, width, stride, out)
