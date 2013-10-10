@@ -327,6 +327,45 @@ PyObject* StaticObjToPythonObj(IMFSourceReader *pReader,
 	return out;
 }
 
+void SetSampleMetaData(IMFSourceReader *pReader, DWORD streamIndex, PyObject *out)
+{
+	//Set meta data in output object
+	IMFMediaType *pCurrentType = NULL;
+	LONG plStride = 0;
+	GUID majorType=GUID_NULL, subType=GUID_NULL;
+	UINT32 width = 0;
+	UINT32 height = 0;
+
+	HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
+	if(!SUCCEEDED(hr)) cout << "Error 3\n";
+	BOOL isComp = FALSE;
+	hr = pCurrentType->IsCompressedFormat(&isComp);
+	PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
+	hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
+	LPCWSTR typePtr = GetGUIDNameConst(majorType);
+	if(!SUCCEEDED(hr)) cout << "Error 4\n";
+	hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
+	if(!SUCCEEDED(hr)) cout << "Error 5\n";
+	int isVideo = (majorType==MFMediaType_Video);
+	if(isVideo)
+	{
+		GetDefaultStride(pCurrentType, &plStride);
+		hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
+		if(!SUCCEEDED(hr)) cout << "Error 20\n";
+	}
+
+	LPCWSTR subTypePtr = GetGUIDNameConst(subType);
+	//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
+
+	PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
+	if(typePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+	if(subTypePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+	if(!isComp) PyDict_SetItemStringAndDeleteVar(out, "stride", PyInt_FromLong(plStride));
+	PyDict_SetItemStringAndDeleteVar(out, "width", PyInt_FromLong(width));
+	PyDict_SetItemStringAndDeleteVar(out, "height", PyInt_FromLong(height));
+
+}
+
 
 class SourceReaderCB : public IMFSourceReaderCallback
 {
@@ -879,40 +918,7 @@ public:
 					frame, buffLen);
 				delete [] frame;
 				
-				//Set meta data in output object
-				IMFMediaType *pCurrentType = NULL;
-				LONG plStride = 0;
-				GUID majorType=GUID_NULL, subType=GUID_NULL;
-				UINT32 width = 0;
-				UINT32 height = 0;
-
-				HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
-				if(!SUCCEEDED(hr)) cout << "Error 3\n";
-				BOOL isComp = FALSE;
-				hr = pCurrentType->IsCompressedFormat(&isComp);
-				PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
-				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
-				LPCWSTR typePtr = GetGUIDNameConst(majorType);
-				if(!SUCCEEDED(hr)) cout << "Error 4\n";
-				hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
-				if(!SUCCEEDED(hr)) cout << "Error 5\n";
-				int isVideo = (majorType==MFMediaType_Video);
-				if(isVideo)
-				{
-					GetDefaultStride(pCurrentType, &plStride);
-					hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
-					if(!SUCCEEDED(hr)) cout << "Error 20\n";
-				}
-
-				LPCWSTR subTypePtr = GetGUIDNameConst(subType);
-				//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
-
-				PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
-				if(typePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-				if(subTypePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
-				if(!isComp) PyDict_SetItemStringAndDeleteVar(out, "stride", PyInt_FromLong(plStride));
-				PyDict_SetItemStringAndDeleteVar(out, "width", PyInt_FromLong(width));
-				PyDict_SetItemStringAndDeleteVar(out, "height", PyInt_FromLong(height));
+				SetSampleMetaData(pReader, streamIndex, out);
 				
 				return out;
 			}
@@ -929,21 +935,34 @@ public:
 				&llTimeStamp,                   // Receives the time stamp.
 				&pSample                        // Receives the sample or NULL.
 				);
+		
+			if (FAILED(hr))
+			{
+				return PyDict_New();
+			}
+
+			if(pSample!=NULL)
+			{
+				char *frame = NULL;
+				DWORD buffLen = SampleToStaticObj(pSample, &frame);
+
+				PyObject* out = StaticObjToPythonObj(pReader, 
+					streamIndex, 
+					flags, 
+					llTimeStamp, 
+					frame, buffLen);
+
+				SetSampleMetaData(pReader, streamIndex, out);
+
+
+				pSample->Release();
+				if(frame != NULL) delete [] frame;
+				return out;
+			}
+
+			if(pSample) pSample->Release();
 		}
 
-		if (FAILED(hr))
-		{
-			return PyDict_New();
-		}
-
-		if(pSample)
-		{
-			//PyObject* out = SampleToPythonObj(pReader, streamIndex, flags, llTimeStamp, pSample);
-			pSample->Release();
-			return PyDict_New();
-		}
-
-		if(pSample) pSample->Release();
 		return PyDict_New();
 	}
 
