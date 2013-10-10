@@ -629,7 +629,7 @@ public:
 			//PyTuple_SetItemAndDeleteVar(deviceTuple, 1, PyInt_FromLong(2));
 
 			PyList_Append(out, deviceTuple);
-			//Py_CLEAR(deviceTuple);
+			Py_CLEAR(deviceTuple);
 			//cout << "PyUnicode_ClearFreeList: " << PyUnicode_ClearFreeList() << endl;
 			
 			//Py_CLEAR(friendlyNameObj);
