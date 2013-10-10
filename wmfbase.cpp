@@ -16,6 +16,7 @@ using namespace std;
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <Mferror.h>
+#include <Shlwapi.h>
 
 #include "pixbuff.h"
 
@@ -198,18 +199,96 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
 
 class SourceReaderCB : public IMFSourceReaderCallback
 {
+	//http://msdn.microsoft.com/en-us/library/windows/desktop/gg583871%28v=vs.85%29.aspx
 public:
+	LONG volatile m_nRefCount;
+	CRITICAL_SECTION lock;
+	int framePending;
 
-	STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
+	SourceReaderCB()
+	{
+		m_nRefCount = 0;
+		framePending = 0;
+		InitializeCriticalSection(&lock);
+	}
 
-	// IMFSourceReaderCallback methods
+	virtual ~SourceReaderCB()
+	{
+		 DeleteCriticalSection(&lock);
+	}
+
+	STDMETHODIMP QueryInterface(REFIID iid, void** ppv)
+	{
+		static const QITAB qit[] =
+        {
+            QITABENT(SourceReaderCB, IMFSourceReaderCallback),
+            { 0 },
+        };
+        return QISearch(this, qit, iid, ppv);
+	}
+
     STDMETHODIMP OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex,
-        DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample);
+        DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample)
+	{
+		cout << "OnReadSample: " << llTimestamp << endl;
+		EnterCriticalSection(&lock);
+		this->framePending = 0;
+		LeaveCriticalSection(&lock);
+		return S_OK;
+	}
 
-	STDMETHODIMP_(ULONG) AddRef();
-    STDMETHODIMP_(ULONG) Release();
-	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *);
-    STDMETHODIMP OnFlush(DWORD);
+	STDMETHODIMP_(ULONG) AddRef()
+	{
+		return InterlockedIncrement(&m_nRefCount);
+	}
+
+    STDMETHODIMP_(ULONG) Release()
+	{
+		ULONG uCount = InterlockedDecrement(&m_nRefCount);
+        if (uCount == 0)
+        {
+			cout << "self destruct" << endl;
+            delete this;
+        }
+        return uCount;
+	}
+
+	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *)
+	{
+		return S_OK;
+	}
+
+    STDMETHODIMP OnFlush(DWORD)
+	{
+		return S_OK;
+	}
+
+	void SetPending()
+	{
+		EnterCriticalSection(&lock);
+		this->framePending = 1;
+		LeaveCriticalSection(&lock);
+	}
+
+	int GetPending()
+	{
+		EnterCriticalSection(&lock);
+		int pendingCopy = this->framePending;
+		LeaveCriticalSection(&lock);
+		return pendingCopy;
+	}
+
+	void WaitForFrame()
+    {
+		while(1)
+		{
+			EnterCriticalSection(&lock);
+			int pendingCopy = this->framePending;
+			LeaveCriticalSection(&lock);
+			if (!pendingCopy) return;
+			Sleep(10);
+		}
+    }
    
 };
 
@@ -260,8 +339,8 @@ public:
 			SafeRelease(&it->second);
 
 		//Remove reader callback
-		for(map<wstring, SourceReaderCB*>::iterator it = readerCallbacks.begin(); it!=readerCallbacks.end(); it++)
-			this->readerCallbacks.erase(it);
+		//for(map<wstring, SourceReaderCB*>::iterator it = readerCallbacks.begin(); it!=readerCallbacks.end(); it++)
+		//	this->readerCallbacks.erase(it);
 
 		MFShutdown();
 
@@ -495,7 +574,6 @@ public:
 		IMFMediaTypeHandler *pHandler = NULL;
 		IMFMediaType *pType = NULL;
 		
-
 		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
 		BOOL fSelected;
 		hr = pPD->GetStreamDescriptorByIndex(0, &fSelected, &pSD);
@@ -596,10 +674,18 @@ public:
 
 			if(camAsyncMode)
 			{
-				hr = pReader->ReadSample(
-					MF_SOURCE_READER_ANY_STREAM,    // Stream index.
-					0, NULL, NULL, NULL, NULL
-					);
+				class SourceReaderCB* pCallback = this->readerCallbacks[w];
+				if(!pCallback->GetPending())
+				{
+					hr = pReader->ReadSample(
+						MF_SOURCE_READER_ANY_STREAM,    // Stream index.
+						0, NULL, NULL, NULL, NULL
+						);
+					pCallback->SetPending();
+				}
+				else
+					return out;
+
 			}
 			else
 			{
@@ -899,9 +985,9 @@ public:
 			this->asyncMode.erase(it2);
 
 		//Remove reader callback
-		map<wstring, SourceReaderCB*>::iterator it3 = this->readerCallbacks.find(w);
-		if(it3 != this->readerCallbacks.end())
-			this->readerCallbacks.erase(it3);
+		//map<wstring, SourceReaderCB*>::iterator it3 = this->readerCallbacks.find(w);
+		//if(it3 != this->readerCallbacks.end())
+		//	this->readerCallbacks.erase(it3);
 
 		//Check if source is already available
 		map<wstring, IMFMediaSource*>::iterator its = this->sourceList.find(w);

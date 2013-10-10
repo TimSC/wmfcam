@@ -42,7 +42,7 @@ class wmfsource(object):
         
     def GetFrame(self):
         if not self._mf.IsCameraRunning(self._deviceId):
-            self._mf.StartCamera(self._deviceId, 1)
+            self._mf.StartCamera(self._deviceId, 0)
         frame = self._mf.ProcessSamples(self._deviceId)
         frame['pix'] = None
 
@@ -108,12 +108,14 @@ if __name__ == "__main__":
         #cam.SetMediaType(31)
 
     for j in range(1):
-        for i in range(1000):
+        while 1:
+            tiNow = time.time()
             for frameTimes, cam in zip(li, cams):
                 frame = cam.GetFrame()
+                if 'pix' not in frame: continue
+                if frame['pix'] is None: continue
 
                 #Estimate frame rate
-                tiNow = time.time()
                 frameTimes.append(tiNow)
                 while len(frameTimes) > 10:
                     frameTimes.pop(0)
@@ -133,7 +135,7 @@ if __name__ == "__main__":
             if tiNow > statTime + 1.:
                 for camNum, (frameTimes, cam) in enumerate(zip(li, cams)):
                     if len(frameTimes) > 2:
-                        print camNum, len(frameTimes) / (frameTimes[-1] - frameTimes[0])
+                        print "FR", camNum, len(frameTimes) / (frameTimes[-1] - frameTimes[0])
                 statTime = tiNow
 
         for cam in cams:

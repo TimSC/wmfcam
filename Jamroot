@@ -32,6 +32,7 @@ python-extension wmfbase : wmfbase.cpp pixbuff.cpp
 	<library-file>Mfreadwrite.lib
 	<library-file>Ole32.lib
 	<library-file>mfuuid.lib
+	<library-file>Shlwapi.lib
     ;
 
 # Put the extension and Boost.Python DLL in the current directory, so
