@@ -281,12 +281,6 @@ void PyDict_SetItemStringAndDeleteVar(PyObject *obj, const char *key, PyObject *
 	Py_CLEAR(val);
 }
 
-void PyTuple_SetItemAndDeleteVar(PyObject *obj, Py_ssize_t index, PyObject *val)
-{
-	PyTuple_SetItem(obj, index, val);
-	Py_CLEAR(val);
-}
-
 PyObject* StaticObjToPythonObj(IMFSourceReader *pReader, 
 	DWORD streamIndex, 
 	DWORD flags, 
@@ -583,6 +577,7 @@ public:
 
 	PyObject* ListDevices()
 	{
+
 		if(!this->initDone)
 			throw runtime_error("Media Foundation init not done");
 
@@ -624,16 +619,26 @@ public:
 			}
 
 			PyObject *deviceTuple = PyTuple_New(2);
+
 			PyObject *friendlyNameObj = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
 			PyObject *deviceNameObj = PyUnicode_FromWideChar(symbolicLink, wcslen(symbolicLink));
 
 			PyTuple_SetItem(deviceTuple, 0, friendlyNameObj);
 			PyTuple_SetItem(deviceTuple, 1, deviceNameObj);
+			//PyTuple_SetItemAndDeleteVar(deviceTuple, 0, PyInt_FromLong(1));
+			//PyTuple_SetItemAndDeleteVar(deviceTuple, 1, PyInt_FromLong(2));
+
 			PyList_Append(out, deviceTuple);
-			Py_CLEAR(deviceTuple);
-			PyUnicode_ClearFreeList();
+			//Py_CLEAR(deviceTuple);
+			//cout << "PyUnicode_ClearFreeList: " << PyUnicode_ClearFreeList() << endl;
+			
 			//Py_CLEAR(friendlyNameObj);
-			//Py_CLEAR(deviceNameObj);
+			//Py_DECREF(deviceNameObj);
+			//PyUnicode_ClearFreeList();
+			
+			//const WCHAR *wtest = L"Stuff Stuff Stuff Stuff Stuff Stuff Stuff Stuff Stuff";
+			//PyObject *test = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
+			//Py_CLEAR(test);
 
 			CoTaskMemFree(vd_pFriendlyName);
 			CoTaskMemFree(symbolicLink);
@@ -702,20 +707,23 @@ public:
 				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
 				PyObject *val = PyUnicode_FromWideChar(pcwsz2, wcslen(pcwsz2));
 				PyDict_SetItem(metaDataOut, key, val);
+				//cout << "PyUnicode_ClearFreeList: " << PyUnicode_ClearFreeList() << endl;
 				PyUnicode_ClearFreeList();
-				//Py_CLEAR(key);
-				//Py_CLEAR(val);
+				//Py_DECREF(key);
+				//Py_DECREF(val);
 			}
 
 			if (iuval2Set)
 			{
 				PyObject *tup = PyTuple_New(2);
 				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
-				PyTuple_SetItemAndDeleteVar(tup, 0, PyInt_FromLong(iuval2.LowPart));
-				PyTuple_SetItemAndDeleteVar(tup, 1, PyInt_FromLong(iuval2.HighPart));
+				PyTuple_SetItem(tup, 0, PyInt_FromLong(iuval2.LowPart));
+				PyTuple_SetItem(tup, 1, PyInt_FromLong(iuval2.HighPart));
 				PyDict_SetItem(metaDataOut, key, tup);
+				//cout << "PyUnicode_ClearFreeList: " << PyUnicode_ClearFreeList() << endl;
 				PyUnicode_ClearFreeList();
-				//Py_CLEAR(key);
+				//Py_DECREF(key);
+				Py_DECREF(tup);
 
 			}
 
@@ -724,8 +732,9 @@ public:
 				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
 				PyObject *val = PyInt_FromLong(ui4);
 				PyDict_SetItem(metaDataOut, key, val);
+				//cout << "PyUnicode_ClearFreeList: " << PyUnicode_ClearFreeList() << endl;
 				PyUnicode_ClearFreeList();
-				//Py_CLEAR(key);
+				//Py_DECREF(key);
 			}
 		}
 
