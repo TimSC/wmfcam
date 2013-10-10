@@ -197,6 +197,151 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
     return NULL;
 }
 
+HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride)
+{
+	LONG lStride = 0;
+
+	// Try to get the default stride from the media type.
+	HRESULT hr = pType->GetUINT32(MF_MT_DEFAULT_STRIDE, (UINT32*)&lStride);
+
+	if (FAILED(hr))
+	{
+		// Attribute not set. Try to calculate the default stride.
+
+		GUID subtype = GUID_NULL;
+
+		UINT32 width = 0;
+		UINT32 height = 0;
+		// Get the subtype and the image size.
+		hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
+		if (FAILED(hr))
+		{
+			goto done;
+		}
+		hr = MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
+		if (FAILED(hr))
+		{
+			goto done;
+		}
+		hr = MFGetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
+		if (FAILED(hr))
+		{
+			goto done;
+		}
+
+		// Set the attribute for later reference.
+		(void)pType->SetUINT32(MF_MT_DEFAULT_STRIDE, UINT32(lStride));
+	}
+
+	if (SUCCEEDED(hr))
+	{
+		*plStride = lStride;
+	}
+
+done:
+	return hr;
+}
+
+
+PyObject* SampleToPythonObj(IMFSourceReader *pReader, 
+	DWORD streamIndex, 
+	DWORD flags, 
+	LONGLONG llTimeStamp, 
+	IMFSample *pSample)
+{
+	UINT32 width = 0;
+	UINT32 height = 0;
+	PyObject* out = PyDict_New();
+
+	if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+	{
+		PyDict_SetItemString(out, "end", PyInt_FromLong(1));
+		return out;
+	}
+	else
+		PyDict_SetItemString(out, "end", PyInt_FromLong(0));
+	PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
+
+	if (flags & MF_SOURCE_READERF_NEWSTREAM)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_STREAMTICK)
+	{
+	}
+	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
+	{
+	}
+
+	if (pSample)
+	{
+		IMFMediaType *pCurrentType = NULL;
+		LONG plStride = 0;
+		GUID majorType=GUID_NULL, subType=GUID_NULL;
+		
+		HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
+		if(!SUCCEEDED(hr)) cout << "Error 3\n";
+		BOOL isComp = FALSE;
+		hr = pCurrentType->IsCompressedFormat(&isComp);
+		PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
+		hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
+		LPCWSTR typePtr = GetGUIDNameConst(majorType);
+		if(!SUCCEEDED(hr)) cout << "Error 4\n";
+		hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
+		if(!SUCCEEDED(hr)) cout << "Error 5\n";
+		int isVideo = (majorType==MFMediaType_Video);
+		if(isVideo)
+		{
+			GetDefaultStride(pCurrentType, &plStride);
+			hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
+			if(!SUCCEEDED(hr)) cout << "Error 20\n";
+		}
+
+		LPCWSTR subTypePtr = GetGUIDNameConst(subType);
+		//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
+
+		IMFMediaBuffer *ppBuffer = NULL;
+		hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
+		//cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
+
+		IMF2DBuffer *m_p2DBuffer = NULL;
+		ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
+		//cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
+
+		if(SUCCEEDED(hr))
+		{
+			BYTE *ppbBuffer;
+			DWORD pcbMaxLength;
+			DWORD pcbCurrentLength;
+			hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
+			//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
+
+			//Return buffer as python format data
+			PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
+			PyDict_SetItemString(out, "buff", buff);
+			if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+			if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+			if(isVideo)
+			{
+				if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
+				PyDict_SetItemString(out, "width", PyInt_FromLong(width));
+				PyDict_SetItemString(out, "height", PyInt_FromLong(height));
+			}
+			PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
+		
+			ppBuffer->Unlock();
+		}
+
+		if(ppBuffer) ppBuffer->Release();
+	}
+	return out;
+}
+
 class SourceReaderCB : public IMFSourceReaderCallback
 {
 	//http://msdn.microsoft.com/en-us/library/windows/desktop/gg583871%28v=vs.85%29.aspx
@@ -231,6 +376,12 @@ public:
         DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample)
 	{
 		cout << "OnReadSample: " << llTimestamp << endl;
+		if (pSample)
+		{
+			//DO stuff
+			
+		}
+
 		EnterCriticalSection(&lock);
 		this->framePending = 0;
 		LeaveCriticalSection(&lock);
@@ -595,51 +746,6 @@ public:
 		SafeRelease(&pType);
 	}
 
-	HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride)
-	{
-		LONG lStride = 0;
-
-		// Try to get the default stride from the media type.
-		HRESULT hr = pType->GetUINT32(MF_MT_DEFAULT_STRIDE, (UINT32*)&lStride);
-
-		if (FAILED(hr))
-		{
-			// Attribute not set. Try to calculate the default stride.
-
-			GUID subtype = GUID_NULL;
-
-			UINT32 width = 0;
-			UINT32 height = 0;
-			// Get the subtype and the image size.
-			hr = pType->GetGUID(MF_MT_SUBTYPE, &subtype);
-			if (FAILED(hr))
-			{
-				goto done;
-			}
-			hr = MFGetAttributeSize(pType, MF_MT_FRAME_SIZE, &width, &height);
-			if (FAILED(hr))
-			{
-				goto done;
-			}
-			hr = MFGetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
-			if (FAILED(hr))
-			{
-				goto done;
-			}
-
-			// Set the attribute for later reference.
-			(void)pType->SetUINT32(MF_MT_DEFAULT_STRIDE, UINT32(lStride));
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			*plStride = lStride;
-		}
-
-	done:
-		return hr;
-	}
-
 	PyObject* ProcessSamples(PyObject *sourceId)
 	{
 		if(!this->initDone)
@@ -658,155 +764,52 @@ public:
 			throw std::runtime_error("Reader not ready for this source");
 		}
 
-		PyObject* out = PyDict_New();
 		IMFSourceReader *pReader = it->second;
 		HRESULT hr = S_OK;
 		IMFSample *pSample = NULL;
-		UINT32 width = 0;
-		UINT32 height = 0;
 		int camAsyncMode = this->asyncMode[w];
 
-		bool quit = false;
-		while (!quit)
+		DWORD streamIndex, flags;
+		LONGLONG llTimeStamp;
+
+		if(camAsyncMode)
 		{
-			DWORD streamIndex, flags;
-			LONGLONG llTimeStamp;
-
-			if(camAsyncMode)
-			{
-				class SourceReaderCB* pCallback = this->readerCallbacks[w];
-				if(!pCallback->GetPending())
-				{
-					hr = pReader->ReadSample(
-						MF_SOURCE_READER_ANY_STREAM,    // Stream index.
-						0, NULL, NULL, NULL, NULL
-						);
-					pCallback->SetPending();
-				}
-				else
-					return out;
-
-			}
-			else
+			class SourceReaderCB* pCallback = this->readerCallbacks[w];
+			if(!pCallback->GetPending())
 			{
 				hr = pReader->ReadSample(
 					MF_SOURCE_READER_ANY_STREAM,    // Stream index.
-					0,                              // Flags.
-					&streamIndex,                   // Receives the actual stream index. 
-					&flags,                         // Receives status flags.
-					&llTimeStamp,                   // Receives the time stamp.
-					&pSample                        // Receives the sample or NULL.
+					0, NULL, NULL, NULL, NULL
 					);
+				pCallback->SetPending();
 			}
-
-			if (FAILED(hr))
-			{
-				quit = true;
-				break;
-			}
-
-			if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
-			{
-				PyDict_SetItemString(out, "end", PyInt_FromLong(1));
-				quit = true;
-			}
-			else
-				PyDict_SetItemString(out, "end", PyInt_FromLong(0));
-			PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
-
-			if (flags & MF_SOURCE_READERF_NEWSTREAM)
-			{
-			}
-			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
-			{
-			}
-			if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
-			{
-			}
-			if (flags & MF_SOURCE_READERF_STREAMTICK)
-			{
-			}
-			if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
-			{
-			}
-
-			if (pSample)
-			{
-				IMFMediaType *pCurrentType = NULL;
-				LONG plStride = 0;
-				GUID majorType=GUID_NULL, subType=GUID_NULL;
-
-				HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
-				if(!SUCCEEDED(hr)) cout << "Error 3\n";
-				BOOL isComp = FALSE;
-				hr = pCurrentType->IsCompressedFormat(&isComp);
-				PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
-				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
-				LPCWSTR typePtr = GetGUIDNameConst(majorType);
-				if(!SUCCEEDED(hr)) cout << "Error 4\n";
-				hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
-				if(!SUCCEEDED(hr)) cout << "Error 5\n";
-				int isVideo = (majorType==MFMediaType_Video);
-				if(isVideo)
-				{
-					this->GetDefaultStride(pCurrentType, &plStride);
-					hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
-					if(!SUCCEEDED(hr)) cout << "Error 20\n";
-				}
-
-				LPCWSTR subTypePtr = GetGUIDNameConst(subType);
-				//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
-
-				IMFMediaBuffer *ppBuffer = NULL;
-				hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
-				//cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
-
-				IMF2DBuffer *m_p2DBuffer = NULL;
-				ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
-				//cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
-
-				if(SUCCEEDED(hr))
-				{
-					BYTE *ppbBuffer;
-					DWORD pcbMaxLength;
-					DWORD pcbCurrentLength;
-					hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
-					//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
-
-					//Return buffer as python format data
-					PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
-					PyDict_SetItemString(out, "buff", buff);
-					if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-					if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
-					if(isVideo)
-					{
-						if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
-						PyDict_SetItemString(out, "width", PyInt_FromLong(width));
-						PyDict_SetItemString(out, "height", PyInt_FromLong(height));
-					}
-					PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
-				
-					ppBuffer->Unlock();
-				}
-
-				if(ppBuffer) ppBuffer->Release();
-			}
-
-			if(pSample) pSample->Release();
-
-			return out;
+		}
+		else
+		{
+			hr = pReader->ReadSample(
+				MF_SOURCE_READER_ANY_STREAM,    // Stream index.
+				0,                              // Flags.
+				&streamIndex,                   // Receives the actual stream index. 
+				&flags,                         // Receives status flags.
+				&llTimeStamp,                   // Receives the time stamp.
+				&pSample                        // Receives the sample or NULL.
+				);
 		}
 
 		if (FAILED(hr))
 		{
-			//cout << "ProcessSamples FAILED" << hr << endl;
+			return PyDict_New();
 		}
-		else
+
+		if(pSample)
 		{
-			//cout << "Processed "<<cSamples<<" samples" << endl;
+			PyObject* out = SampleToPythonObj(pReader, streamIndex, flags, llTimeStamp, pSample);
+			pSample->Release();
+			return out;
 		}
+
 		if(pSample) pSample->Release();
-		return out;
+		return PyDict_New();
 	}
 
 	int FindSourceWithId(PyObject *sourceId)
