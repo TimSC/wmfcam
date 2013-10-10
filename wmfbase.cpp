@@ -196,12 +196,32 @@ LPCWSTR GetGUIDNameConst(const GUID& guid)
     return NULL;
 }
 
+class SourceReaderCB : public IMFSourceReaderCallback
+{
+public:
+
+	STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
+
+	// IMFSourceReaderCallback methods
+    STDMETHODIMP OnReadSample(HRESULT hrStatus, DWORD dwStreamIndex,
+        DWORD dwStreamFlags, LONGLONG llTimestamp, IMFSample *pSample);
+
+	STDMETHODIMP_(ULONG) AddRef();
+    STDMETHODIMP_(ULONG) Release();
+	STDMETHODIMP OnEvent(DWORD, IMFMediaEvent *);
+    STDMETHODIMP OnFlush(DWORD);
+   
+};
+
 class MediaFoundation
 {
 protected:
 	map<wstring, IMFSourceReader*> readerList;
 	map<wstring, IMFMediaSource*> sourceList;
 	int initDone;
+	map<wstring, int> asyncMode;
+	map<wstring, SourceReaderCB*> readerCallbacks;
+
 public:
 	MediaFoundation()
 	{
@@ -238,6 +258,10 @@ public:
 			SafeRelease(&it->second);
 		for(map<wstring, IMFMediaSource*>::iterator it = sourceList.begin(); it!=sourceList.end(); it++)
 			SafeRelease(&it->second);
+
+		//Remove reader callback
+		for(map<wstring, SourceReaderCB*>::iterator it = readerCallbacks.begin(); it!=readerCallbacks.end(); it++)
+			this->readerCallbacks.erase(it);
 
 		MFShutdown();
 
@@ -562,6 +586,7 @@ public:
 		IMFSample *pSample = NULL;
 		UINT32 width = 0;
 		UINT32 height = 0;
+		int camAsyncMode = this->asyncMode[w];
 
 		bool quit = false;
 		while (!quit)
@@ -569,14 +594,24 @@ public:
 			DWORD streamIndex, flags;
 			LONGLONG llTimeStamp;
 
-			hr = pReader->ReadSample(
-				MF_SOURCE_READER_ANY_STREAM,    // Stream index.
-				0,                              // Flags.
-				&streamIndex,                   // Receives the actual stream index. 
-				&flags,                         // Receives status flags.
-				&llTimeStamp,                   // Receives the time stamp.
-				&pSample                        // Receives the sample or NULL.
-				);
+			if(camAsyncMode)
+			{
+				hr = pReader->ReadSample(
+					MF_SOURCE_READER_ANY_STREAM,    // Stream index.
+					0, NULL, NULL, NULL, NULL
+					);
+			}
+			else
+			{
+				hr = pReader->ReadSample(
+					MF_SOURCE_READER_ANY_STREAM,    // Stream index.
+					0,                              // Flags.
+					&streamIndex,                   // Receives the actual stream index. 
+					&flags,                         // Receives status flags.
+					&llTimeStamp,                   // Receives the time stamp.
+					&pSample                        // Receives the sample or NULL.
+					);
+			}
 
 			if (FAILED(hr))
 			{
@@ -789,7 +824,7 @@ public:
 		return it != this->readerList.end();
 	}
 
-	void StartCamera(PyObject *sourceId)
+	void StartCamera(PyObject *sourceId, int blocking = 0)
 	{
 		if(!this->initDone)
 			throw runtime_error("Media Foundation init not done");
@@ -814,6 +849,15 @@ public:
 			throw std::runtime_error("MFCreateAttributes failed");
 		
 		IMFMediaSource *source = this->GetSource(sourceId);
+
+		//Set attributes for reader
+		this->asyncMode[w] = !blocking;
+		SourceReaderCB *pCallback = new SourceReaderCB();
+		this->readerCallbacks[w] = pCallback;
+		if(!blocking)
+		{
+			hr = pAttributes->SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, pCallback);
+		}
 
 		IMFSourceReader *reader = NULL;
 		hr = MFCreateSourceReaderFromMediaSource(source, pAttributes, &reader);
@@ -848,6 +892,16 @@ public:
 
 			this->readerList.erase(it);
 		}
+
+		//Remove asyncMode flag
+		map<wstring, int>::iterator it2 = this->asyncMode.find(w);
+		if(it2 != this->asyncMode.end())
+			this->asyncMode.erase(it2);
+
+		//Remove reader callback
+		map<wstring, SourceReaderCB*>::iterator it3 = this->readerCallbacks.find(w);
+		if(it3 != this->readerCallbacks.end())
+			this->readerCallbacks.erase(it3);
 
 		//Check if source is already available
 		map<wstring, IMFMediaSource*>::iterator its = this->sourceList.find(w);

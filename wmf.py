@@ -42,7 +42,7 @@ class wmfsource(object):
         
     def GetFrame(self):
         if not self._mf.IsCameraRunning(self._deviceId):
-            self._mf.StartCamera(self._deviceId)
+            self._mf.StartCamera(self._deviceId, 1)
         frame = self._mf.ProcessSamples(self._deviceId)
         frame['pix'] = None
 
