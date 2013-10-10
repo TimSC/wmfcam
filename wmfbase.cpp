@@ -624,11 +624,16 @@ public:
 			}
 
 			PyObject *deviceTuple = PyTuple_New(2);
-			PyTuple_SetItem(deviceTuple, 0, PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName)));
-			PyTuple_SetItem(deviceTuple, 1, PyUnicode_FromWideChar(symbolicLink, wcslen(symbolicLink)));
+			PyObject *friendlyNameObj = PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName));
+			PyObject *deviceNameObj = PyUnicode_FromWideChar(symbolicLink, wcslen(symbolicLink));
+
+			PyTuple_SetItem(deviceTuple, 0, friendlyNameObj);
+			PyTuple_SetItem(deviceTuple, 1, deviceNameObj);
 			PyList_Append(out, deviceTuple);
 			Py_CLEAR(deviceTuple);
 			PyUnicode_ClearFreeList();
+			//Py_CLEAR(friendlyNameObj);
+			//Py_CLEAR(deviceNameObj);
 
 			CoTaskMemFree(vd_pFriendlyName);
 			CoTaskMemFree(symbolicLink);
@@ -698,6 +703,8 @@ public:
 				PyObject *val = PyUnicode_FromWideChar(pcwsz2, wcslen(pcwsz2));
 				PyDict_SetItem(metaDataOut, key, val);
 				PyUnicode_ClearFreeList();
+				//Py_CLEAR(key);
+				//Py_CLEAR(val);
 			}
 
 			if (iuval2Set)
@@ -708,6 +715,8 @@ public:
 				PyTuple_SetItemAndDeleteVar(tup, 1, PyInt_FromLong(iuval2.HighPart));
 				PyDict_SetItem(metaDataOut, key, tup);
 				PyUnicode_ClearFreeList();
+				//Py_CLEAR(key);
+
 			}
 
 			if (ui4set)
@@ -716,6 +725,7 @@ public:
 				PyObject *val = PyInt_FromLong(ui4);
 				PyDict_SetItem(metaDataOut, key, val);
 				PyUnicode_ClearFreeList();
+				//Py_CLEAR(key);
 			}
 		}
 
