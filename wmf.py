@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     cams = []
     cams.append(wmfobj[0])
-    cams.append(wmfobj[1])
+    #cams.append(wmfobj[1])
     li = [[] for cam in cams]
     statTime = 0.
 
