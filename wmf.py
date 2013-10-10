@@ -53,14 +53,11 @@ class wmfsource(object):
             parseJpeg.InsertHuffmanTable(cStringIO.StringIO(frame['buff']), jpg)
             jpg.seek(0)
             im = Image.open(jpg)
-            frame['pix'] = im
+            im = im.convert("RGB")
+            frame['pix'] = im.tostring()
 
         if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_YUY2" and 'buff' in frame:
             #Decode YUY2 to RGB
-            pass
-            #frame['pix'] = DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
-            #frame['pix'] = np.empty((frame['height'], frame['width'], 3), dtype=np.uint8)
-            #wmfbase.DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'], frame['pix'])
             frame['pix'] = FastDecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
         
         return frame
@@ -130,9 +127,9 @@ if __name__ == "__main__":
                     print ""
 
                 if 'pix' in frame and frame['pix'] is not None:
-                    #print len(frame['pix'])
+                    #print len(str(frame['pix']))
                     pilImg = Image.fromstring("RGB", (frame['width'], frame['height']), str(frame['pix']))
-                    #pilImg.save("img{0}.jpg".format(count))
+                    pilImg.save("img{0}.jpg".format(count))
                     count += 1
 
             if tiNow > statTime + 1.:
