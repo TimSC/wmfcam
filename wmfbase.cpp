@@ -275,6 +275,18 @@ DWORD SampleToStaticObj(IMFSample *pSample, char **buff)
 	return pcbCurrentLength;
 }
 
+void PyDict_SetItemStringAndDeleteVar(PyObject *obj, const char *key, PyObject *val)
+{
+	PyDict_SetItemString(obj, key, val);
+	Py_CLEAR(val);
+}
+
+void PyTuple_SetItemAndDeleteVar(PyObject *obj, Py_ssize_t index, PyObject *val)
+{
+	PyTuple_SetItem(obj, index, val);
+	Py_CLEAR(val);
+}
+
 PyObject* StaticObjToPythonObj(IMFSourceReader *pReader, 
 	DWORD streamIndex, 
 	DWORD flags, 
@@ -287,12 +299,12 @@ PyObject* StaticObjToPythonObj(IMFSourceReader *pReader,
 
 	if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
 	{
-		PyDict_SetItemString(out, "end", PyInt_FromLong(1));
+		PyDict_SetItemStringAndDeleteVar(out, "end", PyInt_FromLong(1));
 		return out;
 	}
 	else
-		PyDict_SetItemString(out, "end", PyInt_FromLong(0));
-	PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
+		PyDict_SetItemStringAndDeleteVar(out, "end", PyInt_FromLong(0));
+	PyDict_SetItemStringAndDeleteVar(out, "streamIndex", PyInt_FromLong(streamIndex));
 
 	if (flags & MF_SOURCE_READERF_NEWSTREAM)
 	{
@@ -312,19 +324,10 @@ PyObject* StaticObjToPythonObj(IMFSourceReader *pReader,
 
 	if (frame!=NULL && buffLen > 0)
 	{
-		//PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
 		PyObject* buff = PyByteArray_FromStringAndSize((const char *)frame, buffLen);
 		PyDict_SetItemString(out, "buff", buff);
-		//const WCHAR *typePtr = L"MFMediaType_Video";
-		//const WCHAR *subTypePtr = L"MFVideoFormat_YUY2";
-		//if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-		//if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
-
-		//if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
-		//PyDict_SetItemString(out, "width", PyInt_FromLong(width));
-		//PyDict_SetItemString(out, "height", PyInt_FromLong(height));
-
-		PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
+		Py_CLEAR(buff);
+		PyDict_SetItemStringAndDeleteVar(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
 	}
 
 	return out;
@@ -408,7 +411,7 @@ public:
 		ULONG uCount = InterlockedDecrement(&m_nRefCount);
         if (uCount == 0)
         {
-			cout << "self destruct" << endl;
+			//cout << "self destruct" << endl;
             delete this;
         }
         return uCount;
@@ -624,6 +627,8 @@ public:
 			PyTuple_SetItem(deviceTuple, 0, PyUnicode_FromWideChar(vd_pFriendlyName, wcslen(vd_pFriendlyName)));
 			PyTuple_SetItem(deviceTuple, 1, PyUnicode_FromWideChar(symbolicLink, wcslen(symbolicLink)));
 			PyList_Append(out, deviceTuple);
+			Py_CLEAR(deviceTuple);
+			PyUnicode_ClearFreeList();
 
 			CoTaskMemFree(vd_pFriendlyName);
 			CoTaskMemFree(symbolicLink);
@@ -688,24 +693,30 @@ public:
 		if (pcwsz1!=NULL)
 		{
 			if (pcwsz2!=NULL)
-				PyDict_SetItem(metaDataOut, 
-					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
-					PyUnicode_FromWideChar(pcwsz2, wcslen(pcwsz2)));
+			{
+				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
+				PyObject *val = PyUnicode_FromWideChar(pcwsz2, wcslen(pcwsz2));
+				PyDict_SetItem(metaDataOut, key, val);
+				PyUnicode_ClearFreeList();
+			}
 
 			if (iuval2Set)
 			{
 				PyObject *tup = PyTuple_New(2);
-				PyTuple_SetItem(tup, 0, PyInt_FromLong(iuval2.LowPart));
-				PyTuple_SetItem(tup, 1, PyInt_FromLong(iuval2.HighPart));
-				PyDict_SetItem(metaDataOut, 
-					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
-					tup);
+				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
+				PyTuple_SetItemAndDeleteVar(tup, 0, PyInt_FromLong(iuval2.LowPart));
+				PyTuple_SetItemAndDeleteVar(tup, 1, PyInt_FromLong(iuval2.HighPart));
+				PyDict_SetItem(metaDataOut, key, tup);
+				PyUnicode_ClearFreeList();
 			}
 
 			if (ui4set)
-				PyDict_SetItem(metaDataOut, 
-					PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1)), 
-					PyInt_FromLong(ui4));
+			{
+				PyObject *key = PyUnicode_FromWideChar(pcwsz1, wcslen(pcwsz1));
+				PyObject *val = PyInt_FromLong(ui4);
+				PyDict_SetItem(metaDataOut, key, val);
+				PyUnicode_ClearFreeList();
+			}
 		}
 
 		PropVariantClear(&var);
@@ -718,7 +729,7 @@ public:
 
 		PyObject *out = PyList_New(0);
 		IMFMediaSource *pSource = this->GetSource(sourceId);
-
+		
 		//Emumerate types
 		IMFPresentationDescriptor *pPD = NULL;
 		HRESULT hr = pSource->CreatePresentationDescriptor(&pPD);
@@ -748,11 +759,12 @@ public:
 
 			SafeRelease(&pType);
 			PyList_Append(out, metaDataOut);
-
+			Py_CLEAR(metaDataOut);
 		}
 		SafeRelease(&pPD);
 		SafeRelease(&pSD);
 		SafeRelease(&pHandler);
+		
 		return out;
 	}
 
@@ -846,7 +858,8 @@ public:
 					flags, 
 					llTimeStamp, 
 					frame, buffLen);
-
+				delete [] frame;
+				
 				//Set meta data in output object
 				IMFMediaType *pCurrentType = NULL;
 				LONG plStride = 0;
@@ -858,7 +871,7 @@ public:
 				if(!SUCCEEDED(hr)) cout << "Error 3\n";
 				BOOL isComp = FALSE;
 				hr = pCurrentType->IsCompressedFormat(&isComp);
-				PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
+				PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
 				hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
 				LPCWSTR typePtr = GetGUIDNameConst(majorType);
 				if(!SUCCEEDED(hr)) cout << "Error 4\n";
@@ -875,14 +888,13 @@ public:
 				LPCWSTR subTypePtr = GetGUIDNameConst(subType);
 				//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
 
-				PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
-				if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-				if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
-				if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
-				PyDict_SetItemString(out, "width", PyInt_FromLong(width));
-				PyDict_SetItemString(out, "height", PyInt_FromLong(height));
-
-				delete [] frame;
+				PyDict_SetItemStringAndDeleteVar(out, "isCompressed", PyBool_FromLong(isComp));
+				if(typePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
+				if(subTypePtr!=NULL) PyDict_SetItemStringAndDeleteVar(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
+				if(!isComp) PyDict_SetItemStringAndDeleteVar(out, "stride", PyInt_FromLong(plStride));
+				PyDict_SetItemStringAndDeleteVar(out, "width", PyInt_FromLong(width));
+				PyDict_SetItemStringAndDeleteVar(out, "height", PyInt_FromLong(height));
+				
 				return out;
 			}
 			else
@@ -968,6 +980,7 @@ public:
 		wchar_t w[MAX_DEVICE_ID_LEN];
 		PyUnicode_AsWideChar((PyUnicodeObject *)sourceId, w, MAX_DEVICE_ID_LEN);
 		w[MAX_DEVICE_ID_LEN-1] = L'\0';
+		
 		map<wstring, IMFMediaSource*>::iterator it = this->sourceList.find(w);
 		if(it != this->sourceList.end())
 		{

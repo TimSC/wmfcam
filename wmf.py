@@ -46,7 +46,7 @@ class wmfsource(object):
         frame = self._mf.ProcessSamples(self._deviceId)
         frame['pix'] = None
 
-        if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_MJPG":
+        if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_MJPG" and 'buff' in frame:
             #Decode MJPEG pixels to RGB
             jpg = cStringIO.StringIO()
             parseJpeg = mjpeg.ParseJpeg()
@@ -55,7 +55,7 @@ class wmfsource(object):
             im = Image.open(jpg)
             frame['pix'] = im
 
-        if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_YUY2":
+        if 'subtype' in frame and frame['subtype'] == "MFVideoFormat_YUY2" and 'buff' in frame:
             #Decode YUY2 to RGB
             pass
             #frame['pix'] = DecodeYuy2ToPilImage(frame['buff'], frame['height'], frame['width'], frame['stride'])
@@ -98,12 +98,14 @@ if __name__ == "__main__":
 
     cams = []
     cams.append(wmfobj[0])
-    #cams.append(wmfobj[1])
+    cams.append(wmfobj[1])
     li = [[] for cam in cams]
     statTime = 0.
+    count = 0
 
     for cam in cams:
-        print cam.friendlyName
+        print "Friendly name:", cam.friendlyName
+        print "Device name:", cam._deviceId
         print "Media types available:", len(cam.GetMediaTypes())
         #cam.SetMediaType(31)
 
@@ -130,7 +132,8 @@ if __name__ == "__main__":
                 if 'pix' in frame and frame['pix'] is not None:
                     #print len(frame['pix'])
                     pilImg = Image.fromstring("RGB", (frame['width'], frame['height']), str(frame['pix']))
-                    #pilImg.save("img{0}.jpg".format(i))
+                    #pilImg.save("img{0}.jpg".format(count))
+                    count += 1
 
             if tiNow > statTime + 1.:
                 for camNum, (frameTimes, cam) in enumerate(zip(li, cams)):
