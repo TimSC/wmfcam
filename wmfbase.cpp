@@ -243,106 +243,37 @@ done:
 }
 
 
-PyObject* SampleToPythonObj(IMFSourceReader *pReader, 
-	DWORD streamIndex, 
-	DWORD flags, 
-	LONGLONG llTimeStamp, 
-	IMFSample *pSample)
+DWORD SampleToStaticObj(IMFSample *pSample, char **buff)
 {
-	UINT32 width = 0;
-	UINT32 height = 0;
-	if(pReader == NULL)
-		throw runtime_error("pReader ptr cannot be NULL");
+	if(buff!=NULL)
+		throw runtime_error("Buff ptr should be initially null");
+	IMFMediaBuffer *ppBuffer = NULL;
+	HRESULT hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
+	//cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
 
-	PyObject* out = PyDict_New();
+	IMF2DBuffer *m_p2DBuffer = NULL;
+	ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
+	//cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
 
-	if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
-	{
-		PyDict_SetItemString(out, "end", PyInt_FromLong(1));
-		return out;
-	}
-	else
-		PyDict_SetItemString(out, "end", PyInt_FromLong(0));
-	PyDict_SetItemString(out, "streamIndex", PyInt_FromLong(streamIndex));
+	DWORD pcbCurrentLength = 0;
+	BYTE *ppbBuffer = NULL;
+	DWORD pcbMaxLength = 0;
 
-	if (flags & MF_SOURCE_READERF_NEWSTREAM)
+	if(SUCCEEDED(hr))
 	{
-	}
-	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
-	{
-	}
-	if (flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED)
-	{
-	}
-	if (flags & MF_SOURCE_READERF_STREAMTICK)
-	{
-	}
-	if (flags & MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED)
-	{
-	}
-
-	if (pSample)
-	{
-		IMFMediaType *pCurrentType = NULL;
-		LONG plStride = 0;
-		GUID majorType=GUID_NULL, subType=GUID_NULL;
 		
-		HRESULT hr = pReader->GetCurrentMediaType(streamIndex, &pCurrentType);
-		if(!SUCCEEDED(hr)) cout << "Error 3\n";
-		BOOL isComp = FALSE;
-		hr = pCurrentType->IsCompressedFormat(&isComp);
-		PyDict_SetItemString(out, "isCompressed", PyBool_FromLong(isComp));
-		hr = pCurrentType->GetGUID(MF_MT_MAJOR_TYPE, &majorType);
-		LPCWSTR typePtr = GetGUIDNameConst(majorType);
-		if(!SUCCEEDED(hr)) cout << "Error 4\n";
-		hr = pCurrentType->GetGUID(MF_MT_SUBTYPE, &subType);
-		if(!SUCCEEDED(hr)) cout << "Error 5\n";
-		int isVideo = (majorType==MFMediaType_Video);
-		if(isVideo)
-		{
-			GetDefaultStride(pCurrentType, &plStride);
-			hr = MFGetAttributeSize(pCurrentType, MF_MT_FRAME_SIZE, &width, &height);
-			if(!SUCCEEDED(hr)) cout << "Error 20\n";
-		}
+		hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
+		//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
 
-		LPCWSTR subTypePtr = GetGUIDNameConst(subType);
-		//if(subTypePtr!=0) wcout << "subtype\t" << subTypePtr << "\n";
+		//Return buffer as python format data
+		*buff = new char[pcbCurrentLength];
+		memcpy(*buff, ppbBuffer, pcbCurrentLength);
 
-		IMFMediaBuffer *ppBuffer = NULL;
-		hr = pSample->ConvertToContiguousBuffer(&ppBuffer);
-		//cout << "ConvertToContiguousBuffer=" << SUCCEEDED(hr) << "\tstride="<< plStride << "\n";
-
-		IMF2DBuffer *m_p2DBuffer = NULL;
-		ppBuffer->QueryInterface(IID_IMF2DBuffer, (void**)&m_p2DBuffer);
-		//cout << "IMF2DBuffer=" << (m_p2DBuffer != NULL) << "\n";
-
-		if(SUCCEEDED(hr))
-		{
-			BYTE *ppbBuffer;
-			DWORD pcbMaxLength;
-			DWORD pcbCurrentLength;
-			hr = ppBuffer->Lock(&ppbBuffer, &pcbMaxLength, &pcbCurrentLength);
-			//cout << "pcbMaxLength="<< pcbMaxLength << "\tpcbCurrentLength=" <<pcbCurrentLength << "\n";
-
-			//Return buffer as python format data
-			PyObject* buff = PyByteArray_FromStringAndSize((const char *)ppbBuffer, pcbCurrentLength);
-			PyDict_SetItemString(out, "buff", buff);
-			if(typePtr!=NULL) PyDict_SetItemString(out, "type", PyUnicode_FromWideChar(typePtr, wcslen(typePtr)));
-			if(subTypePtr!=NULL) PyDict_SetItemString(out, "subtype", PyUnicode_FromWideChar(subTypePtr, wcslen(subTypePtr)));
-			if(isVideo)
-			{
-				if(!isComp) PyDict_SetItemString(out, "stride", PyInt_FromLong(plStride));
-				PyDict_SetItemString(out, "width", PyInt_FromLong(width));
-				PyDict_SetItemString(out, "height", PyInt_FromLong(height));
-			}
-			PyDict_SetItemString(out, "timestamp", PyLong_FromLongLong(llTimeStamp));
-		
-			ppBuffer->Unlock();
-		}
-
-		if(ppBuffer) ppBuffer->Release();
+		ppBuffer->Unlock();
 	}
-	return out;
+
+	if(ppBuffer) ppBuffer->Release();
+	return pcbCurrentLength;
 }
 
 class SourceReaderCB : public IMFSourceReaderCallback
@@ -353,8 +284,14 @@ public:
 	CRITICAL_SECTION lock;
 	int framePending;
 	IMFSourceReader *pReader;
-	vector<PyObject *> frameBuff;
 
+	vector<char *> frameBuff;
+	vector<DWORD> frameLenBuff;
+	vector<HRESULT> hrStatusBuff;
+	vector<DWORD> dwStreamIndexBuff;
+    vector<DWORD> dwStreamFlagsBuff;
+	vector<LONGLONG> llTimestampBuff;
+	
 	SourceReaderCB()
 	{
 		m_nRefCount = 0;
@@ -391,12 +328,15 @@ public:
 
 		if (pSample)
 		{
-			PyObject *pyObj = SampleToPythonObj(this->pReader, 
-				dwStreamIndex, 
-				dwStreamFlags, 
-				llTimestamp, 
-				pSample);
-			this->frameBuff.push_back(pyObj);
+			char *buff = NULL;
+			DWORD buffLen = SampleToStaticObj(pSample, &buff);
+
+			frameBuff.push_back(buff);
+			frameLenBuff.push_back(buffLen);
+			hrStatusBuff.push_back(hrStatus);
+			dwStreamIndexBuff.push_back(dwStreamIndex);
+			dwStreamFlagsBuff.push_back(dwStreamFlags);
+			llTimestampBuff.push_back(llTimestamp);
 		}
 
 		this->framePending = 0;
@@ -457,17 +397,37 @@ public:
 		}
     }
 
-	PyObject *GetFrame()
+	int GetFrame(HRESULT *hrStatus, DWORD *dwStreamIndex,
+        DWORD *dwStreamFlags, LONGLONG *llTimestamp, char **frame, DWORD *buffLen)
 	{
-		PyObject *out = NULL;
+		int ret = 0;
+		*hrStatus = S_OK;
+		*dwStreamIndex = 0;
+		*dwStreamFlags = 0;
+		*llTimestamp = 0;
+		*frame = NULL;
+		*buffLen = 0;
+
 		EnterCriticalSection(&lock);
 		if(this->frameBuff.size()>0)
 		{
-			out = this->frameBuff[0];
+			/**frame = frameBuff[0];
+			*buffLen = frameLenBuff[0];
+			*hrStatus = hrStatusBuff[0];
+			*dwStreamIndex = dwStreamIndexBuff[0];
+			*dwStreamFlags = dwStreamFlagsBuff[0];
+			*llTimestamp = llTimestampBuff[0];
+
 			this->frameBuff.erase(this->frameBuff.begin());
+			this->frameLenBuff.erase(this->frameLenBuff.begin());
+			this->hrStatusBuff.erase(this->hrStatusBuff.begin());
+			this->dwStreamIndexBuff.erase(this->dwStreamIndexBuff.begin());
+			this->dwStreamFlagsBuff.erase(this->dwStreamFlagsBuff.begin());
+			this->llTimestampBuff.erase(this->llTimestampBuff.begin());
+			ret = 1;*/
 		}
 		LeaveCriticalSection(&lock);
-		return out;
+		return ret;
 	}
    
 };
@@ -813,9 +773,19 @@ public:
 				pCallback->SetPending();
 			}
 
-			PyObject *frame = pCallback->GetFrame();
-			if(frame!=NULL)
-				return frame;
+			HRESULT hrStatus = S_OK;
+			DWORD dwStreamIndex = 0;
+			DWORD dwStreamFlags = 0; 
+			LONGLONG llTimestamp = 0;
+			char *frame = NULL;
+			DWORD buffLen = 0;
+
+			int found = pCallback->GetFrame(&hrStatus, &dwStreamIndex,
+				&dwStreamFlags, &llTimestamp, &frame, &buffLen);
+			cout << found << endl;
+
+			if(found)
+				return PyDict_New();
 			else
 				return PyDict_New();
 		}
@@ -838,9 +808,9 @@ public:
 
 		if(pSample)
 		{
-			PyObject* out = SampleToPythonObj(pReader, streamIndex, flags, llTimeStamp, pSample);
+			//PyObject* out = SampleToPythonObj(pReader, streamIndex, flags, llTimeStamp, pSample);
 			pSample->Release();
-			return out;
+			return PyDict_New();
 		}
 
 		if(pSample) pSample->Release();
