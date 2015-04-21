@@ -9,4 +9,7 @@ Boost python is required to compile this library. It may be used and redistribut
 Compile
 =======
 
-Extract/retrieve the files, open a command line terminal, change to the source code folder and run bjam.
+* Extract/retrieve the files, 
+* Update boost-build.jam with correct path to boost python
+* Open a command line terminal in the source code folder
+* Run bjam.
